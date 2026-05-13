@@ -750,6 +750,7 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         this.time.delayedCall(2000, () => {
+            this.applyRoundOutcome(finalResult);
             waitScreen.destroy();
             clashText.destroy();
             this.input.enabled = true;
