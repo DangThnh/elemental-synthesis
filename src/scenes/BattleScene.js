@@ -796,8 +796,10 @@ export default class BattleScene extends Phaser.Scene {
         this.tweens.killTweensOf(clashText);
         clashText.setAlpha(1);
 
-        if (finalResult === 'WIN') playSfx(this, 'sfx_win');
-        if (finalResult === 'LOSE') playSfx(this, 'sfx_lose');
+        if (finalResult === 'WIN' || finalResult === 'LOSE') {
+            this.applyRoundOutcome(finalResult);
+            playSfx(this, finalResult === 'WIN' ? 'sfx_win' : 'sfx_lose');
+        }
 
         if (finalResult === 'DRAW') {
             waitScreen.destroy();
