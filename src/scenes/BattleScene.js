@@ -30,6 +30,7 @@ export default class BattleScene extends Phaser.Scene {
         this.swapBtn = null;
         this.swapTooltip = null;
         this.matchResultContainer = null;
+        this.audioUnlocked = false;
     }
 
     preload() {
@@ -42,6 +43,85 @@ export default class BattleScene extends Phaser.Scene {
 
     create() {
         const { width, height } = this.scale;
+
+        // Kiểm tra xem đã unlock audio chưa
+        if (!this.audioUnlocked) {
+            this.createStartScreen();
+            return;
+        }
+
+        // Tiếp tục tạo game bình thường
+        this.initializeGame(width, height);
+    }
+
+    createStartScreen() {
+        const { width, height } = this.scale;
+
+        // Background
+        this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e, 0.9);
+
+        // Title
+        this.add.text(width / 2, height * 0.3, 'ELEMENTAL SYNTHESIS', {
+            fontSize: '48px',
+            color: '#ffd700',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        // Subtitle
+        this.add.text(width / 2, height * 0.4, 'Ngũ Hành Tương Sinh Tương Khắc', {
+            fontSize: '24px',
+            color: '#ffffff'
+        }).setOrigin(0.5);
+
+        // Instructions
+        const instructions = [
+            '🎮 Click để bắt đầu game',
+            '🔊 Nhấn để kích hoạt âm thanh',
+            '⚔️ Chiến đấu với các nguyên tố ngũ hành',
+            '💡 Nhấn "?" để xem bảng tra cứu'
+        ];
+
+        instructions.forEach((text, index) => {
+            this.add.text(width / 2, height * 0.5 + index * 40, text, {
+                fontSize: '20px',
+                color: '#cccccc'
+            }).setOrigin(0.5);
+        });
+
+        // Start button
+        const startBtn = this.add.rectangle(width / 2, height * 0.75, 300, 80, 0xffa500)
+            .setInteractive({ useHandCursor: true })
+            .on('pointerdown', () => {
+                this.unlockAudio();
+                this.scene.restart(); // Restart scene để vào game
+            });
+
+        this.add.text(width / 2, height * 0.75, 'BẮT ĐẦU', {
+            fontSize: '32px',
+            color: '#000',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+    }
+
+    unlockAudio() {
+        // Thử phát một âm thanh ngắn để unlock audio context
+        try {
+            const audioContext = this.sound.context || (window.AudioContext || window.webkitAudioContext);
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            // Phát một âm thanh test (nếu có file)
+            if (this.cache.audio.exists('sfx_fight')) {
+                this.sound.play('sfx_fight', { volume: 0.1 });
+            }
+            this.audioUnlocked = true;
+        } catch (e) {
+            console.warn('Không thể unlock audio:', e);
+            this.audioUnlocked = true; // Vẫn cho phép chơi game
+        }
+    }
+
+    initializeGame(width, height) {
 
         this.playerReserveStartX = width / 2 - 220;
         this.playerReserveSpacing = 110;
