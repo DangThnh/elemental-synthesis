@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { displayElementName, getCompositionTooltipText, Elements } from '../utils/GameLogic';
+import { Elements } from '../utils/GameLogic';
 
 export default class Card extends Phaser.GameObjects.Container {
     constructor(scene, x, y, cardData, isPlayer) {
@@ -13,45 +13,66 @@ export default class Card extends Phaser.GameObjects.Container {
         this.bg = scene.add.graphics();
         this.drawBackground();
 
-        const isDual = cardData.type === 'Dual';
-        const line1 = this.getTitleLine();
+        // Element icon for Single cards
+        this.elementIcon = scene.add.image(0, -30, null).setVisible(false);
+        if (cardData.type === 'Single') {
+            this.elementIcon.setTexture(`icon_${cardData.name.toLowerCase()}`);
+            this.elementIcon.setVisible(true);
+            this.elementIcon.setDisplaySize(60, 40); // Fixed frame size to contain icon
+        }
+
+        // Title text for Dual cards
+        this.titleText = scene.add.text(0, -30, cardData.type === 'Dual' ? cardData.name : '', {
+            fontSize: '22px',
+            color: '#ffd700',
+            fontStyle: 'bold',
+            align: 'center'
+        }).setOrigin(0.5);
+        this.titleText.setStroke('#000000', 5);
+
         const line2 = `Lv${cardData.level}`;
         
-        this.text = scene.add.text(0, -6, `${line1}\n${line2}`, {
+        this.text = scene.add.text(0, 10, line2, {
             fontSize: '22px',
-            color: isDual ? '#ffd700' : '#ffffff',
+            color: '#ffffff',
             fontStyle: 'bold',
             wordWrap: { width: 94 },
             align: 'center',
             lineSpacing: 4
         }).setOrigin(0.5);
 
-        this.text.setStroke('#000000', isDual ? 5 : 4);
+        this.text.setStroke('#000000', 4);
 
         // Icons tương tác
-        this.iconPlus = scene.add.text(35, -55, '+', { fontSize: '30px', color: '#00ff00', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false);
-        this.iconCross = scene.add.text(35, -55, 'X', { fontSize: '30px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false);
+        this.iconPlus = scene.add.text(35, -55, '+', { fontSize: '60px', color: '#00ff00', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false);
+        this.iconPlus.setStroke('#000000', 6);
+        this.iconCross = scene.add.text(35, -55, 'X', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false);
+        this.iconCross.setStroke('#000000', 6);
 
         // Tooltip thông tin cấu thành
         this.tipBg = scene.add.rectangle(0, -118, 132, 52, 0x1a1a1a, 0.95).setStrokeStyle(2, 0xffd700).setVisible(false);
-        this.tipText = scene.add.text(0, -118, '', {
+        this.elementIcon1 = scene.add.image(-20, -118, null).setVisible(false);
+        this.elementIcon2 = scene.add.image(20, -118, null).setVisible(false);
+        this.plusText = scene.add.text(0, -118, '+', {
             fontSize: '18px',
             color: '#ffeeaa',
             fontStyle: 'bold',
-            align: 'center',
-            wordWrap: { width: 124 }
+            align: 'center'
         }).setOrigin(0.5).setVisible(false);
-        this.tipText.setStroke('#000000', 3);
+        this.plusText.setStroke('#000000', 3);
 
-        // Lớp vẽ vết nứt
-        this.crackG = scene.add.graphics();
-        this.crackG.setDepth(5);
+        // Crack overlay image
+        this.crackImage = scene.add.image(0, 0, 'crack_overlay').setVisible(false);
+        this.crackImage.setDepth(5);
+        this.crackImage.setDisplaySize(100, 140); // Fixed to card size to contain within card
 
-        this.add([this.bg, this.text, this.iconPlus, this.iconCross, this.tipBg, this.tipText, this.crackG]);
+        this.add([this.bg, this.elementIcon, this.titleText, this.text, this.iconPlus, this.iconCross, this.tipBg, this.elementIcon1, this.elementIcon2, this.plusText, this.crackImage]);
         scene.add.existing(this);
 
         this.crackActive = false;
         this.crackTween = null;
+        this.strokeTween = null;
+        this.hoverTargets = [];
 
         this.setDepth(isPlayer ? 2 : 1);
         this.setSize(100, 140);
@@ -88,10 +109,7 @@ export default class Card extends Phaser.GameObjects.Container {
         this.bg.strokeRect(-w / 2, -h / 2, w, h);
     }
 
-    getTitleLine() {
-        if (this.cardData.type === 'Dual') return this.cardData.name;
-        return displayElementName(this.cardData.name);
-    }
+
 
     getBaseStrokeColor() {
         if ((this.cardData?.level ?? 1) >= 2) return 0xffd700;
@@ -99,20 +117,32 @@ export default class Card extends Phaser.GameObjects.Container {
     }
 
     showCompositionTooltipIfAny() {
-        const tip = getCompositionTooltipText(this.cardData);
-        if (!tip) {
+        let elements = [];
+        if (this.cardData.type === 'Dual' && Array.isArray(this.cardData.elements) && this.cardData.elements.length >= 2) {
+            elements = this.cardData.elements.slice(0, 2);
+        } else if (this.cardData.type === 'Single' && (this.cardData.level ?? 1) >= 2) {
+            elements = [this.cardData.name, this.cardData.name];
+        }
+        if (elements.length < 2) {
             this.hideCompositionTooltip();
             return;
         }
-        this.tipText.setText(tip);
+        this.elementIcon1.setTexture(`icon_${elements[0].toLowerCase()}`);
+        this.elementIcon1.setDisplaySize(25, 25); // Fixed frame size for tooltip icons
+        this.elementIcon2.setTexture(`icon_${elements[1].toLowerCase()}`);
+        this.elementIcon2.setDisplaySize(25, 25); // Fixed frame size for tooltip icons
         this.tipBg.setVisible(true);
-        this.tipText.setVisible(true);
-        this.tipBg.setSize(Math.min(200, Math.max(132, this.tipText.width + 16)), Math.max(48, this.tipText.height + 14));
+        this.elementIcon1.setVisible(true);
+        this.elementIcon2.setVisible(true);
+        this.plusText.setVisible(true);
+        this.tipBg.setSize(132, 52); // Fixed size or adjust if needed
     }
 
     hideCompositionTooltip() {
         this.tipBg.setVisible(false);
-        this.tipText.setVisible(false);
+        this.elementIcon1.setVisible(false);
+        this.elementIcon2.setVisible(false);
+        this.plusText.setVisible(false);
     }
 
     clearCrackPreview() {
@@ -121,14 +151,14 @@ export default class Card extends Phaser.GameObjects.Container {
             this.crackTween.remove();
             this.crackTween = null;
         }
-        this.crackG.clear();
+        this.crackImage.setVisible(false);
         this.setAlpha(1);
     }
 
     setCrackPreview(active) {
         if (active) {
             if (this.crackActive) return; // Nếu đang nứt rồi thì không vẽ lại
-            this.drawCrackPattern();
+            this.crackImage.setVisible(true);
             this.crackActive = true;
             if (!this.crackTween && this.scene) {
                 this.crackTween = this.scene.tweens.add({
@@ -145,34 +175,24 @@ export default class Card extends Phaser.GameObjects.Container {
         }
     }
 
-    drawCrackPattern() {
-        this.crackG.clear();
-        const w = 102;
-        const h = 134;
-        this.crackG.lineStyle(2, 0xffffff, 0.55);
-        const lines = [
-            [-w * 0.4, -h * 0.35, w * 0.15, h * 0.1],
-            [w * 0.1, -h * 0.45, -w * 0.2, h * 0.25],
-            [-w * 0.15, h * 0.05, w * 0.42, h * 0.38],
-            [0, -h * 0.2, -w * 0.35, h * 0.42],
-            [w * 0.25, 0, w * 0.4, -h * 0.25]
-        ];
-        for (const [x1, y1, x2, y2] of lines) {
-            this.crackG.beginPath();
-            this.crackG.moveTo(x1, y1);
-            this.crackG.lineTo(x2, y2);
-            this.crackG.strokePath();
-        }
-    }
+
 
     refreshVisuals() {
         this.drawBackground();
-        const isDual = this.cardData.type === 'Dual';
-        const line1 = this.getTitleLine();
+        if (this.cardData.type === 'Dual') {
+            this.titleText.setText(this.cardData.name);
+            this.titleText.setVisible(true);
+            this.elementIcon.setVisible(false);
+        } else {
+            this.titleText.setVisible(false);
+            this.elementIcon.setTexture(`icon_${this.cardData.name.toLowerCase()}`);
+            this.elementIcon.setVisible(true);
+            this.elementIcon.setDisplaySize(60, 40); // Ensure fixed size
+        }
         const line2 = `Lv${this.cardData.level}`;
-        this.text.setText(`${line1}\n${line2}`);
-        this.text.setColor(isDual ? '#ffd700' : '#ffffff');
-        this.text.setStroke('#000000', isDual ? 5 : 4);
+        this.text.setText(line2);
+        this.text.setColor('#ffffff');
+        this.text.setStroke('#000000', 4);
     }
 
     setupPlayerInteractions() {
@@ -191,6 +211,14 @@ export default class Card extends Phaser.GameObjects.Container {
             this.scene.children.bringToTop(this);
             this.scene.tweens.add({ targets: this, scale: 0.8, duration: 100 });
             this.originalPos = { x: this.x, y: this.y };
+            // Start stroke flashing
+            this.strokeTween = this.scene.tweens.add({
+                targets: this,
+                strokeColor: { from: this.getBaseStrokeColor(), to: 0xffff00 },
+                yoyo: true,
+                repeat: -1,
+                duration: 300
+            });
         });
 
         this.on('drag', (pointer, dragX, dragY) => {
@@ -203,6 +231,19 @@ export default class Card extends Phaser.GameObjects.Container {
             this.scene.tweens.add({ targets: this, scale: 1, duration: 100 });
             this.iconPlus.setVisible(false);
             this.iconCross.setVisible(false);
+            // Stop stroke flashing
+            if (this.strokeTween) {
+                this.strokeTween.remove();
+                this.strokeTween = null;
+            }
+            // Stop flashing for hover targets
+            this.hoverTargets.forEach(target => {
+                if (target.strokeTween) {
+                    target.strokeTween.remove();
+                    target.strokeTween = null;
+                }
+            });
+            this.hoverTargets = [];
             this.scene.handleCardDrop(this);
         });
     }
@@ -215,33 +256,55 @@ export default class Card extends Phaser.GameObjects.Container {
         this.iconPlus.setVisible(false);
         this.iconCross.setVisible(false);
 
-        // Check đè lên Core Slot trống
-        if (!this.scene.playerCoreCard && this.scene.getReserveSlotIndexOfCard?.(this) >= 0) {
+        // Stop previous hover tweens
+        this.hoverTargets.forEach(target => {
+            if (target.strokeTween) {
+                target.strokeTween.remove();
+                target.strokeTween = null;
+            }
+        });
+        this.hoverTargets = [];
+
+        // Check đè lên Core Slot
+        if (this.scene.playerCoreCard && this.scene.getReserveSlotIndexOfCard?.(this) >= 0) {
             const z = this.scene.getCoreZone?.();
             if (z && Phaser.Math.Distance.Between(this.x, this.y, z.x, z.y) < z.r + 28) {
-                this.iconPlus.setVisible(true);
+                const mergeData = this.scene.logic.checkMerge(this.cardData, this.scene.playerCoreCard.cardData);
+                if (mergeData.valid) {
+                    this.iconPlus.setVisible(true);
+                    // Start flashing for mergeable core card
+                    this.scene.playerCoreCard.strokeTween = this.scene.tweens.add({
+                        targets: this.scene.playerCoreCard,
+                        strokeColor: { from: this.scene.playerCoreCard.getBaseStrokeColor(), to: 0xffff00 },
+                        yoyo: true,
+                        repeat: -1,
+                        duration: 300
+                    });
+                    this.hoverTargets.push(this.scene.playerCoreCard);
+                } else {
+                    this.iconCross.setVisible(true);
+                }
                 return;
             }
         }
 
-        // Check đè lên Slot trống trong Reserve
-        const emptyIdx = this.scene.getNearestEmptyReserveSlotIndex?.(this.x, this.y);
-        if (emptyIdx != null && emptyIdx >= 0) {
-            this.iconPlus.setVisible(true);
-            return;
-        }
-
-        // Check đè lên lá bài khác (Merge/Swap)
+        // Check đè lên lá bài khác trong Reserve (chỉ merge)
         const reserveList = this.scene.getPlayerReserveList?.() ?? this.scene.playerReserveCards ?? [];
-        const allTargetCards = reserveList.concat(this.scene.playerCoreCard ? [this.scene.playerCoreCard] : []);
 
-        for (let target of allTargetCards) {
+        for (let target of reserveList) {
             if (target !== this && Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y) < 60) {
                 const mergeData = this.scene.logic.checkMerge(this.cardData, target.cardData);
                 if (mergeData.valid) {
                     this.iconPlus.setVisible(true);
-                } else if (target === this.scene.playerCoreCard) {
-                    this.iconPlus.setVisible(true);
+                    // Start flashing for mergeable target
+                    target.strokeTween = this.scene.tweens.add({
+                        targets: target,
+                        strokeColor: { from: target.getBaseStrokeColor(), to: 0xffff00 },
+                        yoyo: true,
+                        repeat: -1,
+                        duration: 300
+                    });
+                    this.hoverTargets.push(target);
                 } else {
                     this.iconCross.setVisible(true);
                 }

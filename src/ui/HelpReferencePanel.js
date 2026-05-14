@@ -104,7 +104,7 @@ function buildAllDualPairRows() {
 export function createHelpReferencePanel(scene) {
     const { width, height } = scene.scale;
     const container = scene.add.container(0, 0);
-    container.setDepth(80);
+    container.setDepth(9999);
     container.setVisible(false);
 
     const backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55).setInteractive();
@@ -295,7 +295,10 @@ export function createHelpReferencePanel(scene) {
         container,
         setVisible: (v) => {
             container.setVisible(v);
-            if (v) refreshDiscoveryList();
+            if (v) {
+                scene.children.bringToTop(container);
+                refreshDiscoveryList();
+            }
         },
         refreshDiscoveryList
     };
