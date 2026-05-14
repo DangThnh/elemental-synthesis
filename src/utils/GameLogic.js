@@ -304,11 +304,10 @@ export function getWeakSideForPreview(playerCard, enemyCard) {
 export function getCompositionTooltipText(cardData) {
     if (!cardData) return null;
     if (cardData.type === 'Dual' && Array.isArray(cardData.elements) && cardData.elements.length >= 2) {
-        return `${displayElementName(cardData.elements[0])} + ${displayElementName(cardData.elements[1])}`;
+        return [cardData.elements[0], cardData.elements[1]];
     }
     if (cardData.type === 'Single' && (cardData.level ?? 1) >= 2) {
-        const e = displayElementName(cardData.name);
-        return `${e} + ${e}`;
+        return [cardData.name, cardData.name];
     }
     return null;
 }

@@ -104,7 +104,7 @@ function buildAllDualPairRows() {
 export function createHelpReferencePanel(scene) {
     const { width, height } = scene.scale;
     const container = scene.add.container(0, 0);
-    container.setDepth(80);
+    container.setDepth(9999);
     container.setVisible(false);
 
     const backdrop = scene.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55).setInteractive();
@@ -124,7 +124,7 @@ export function createHelpReferencePanel(scene) {
         })
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => container.setVisible(false));
+        .on('pointerdown', () => scene.toggleHelpPanel());
     container.add(closeBtn);
 
     let yTop = height / 2 - panelH / 2 + 36;
@@ -295,7 +295,12 @@ export function createHelpReferencePanel(scene) {
         container,
         setVisible: (v) => {
             container.setVisible(v);
-            if (v) refreshDiscoveryList();
+            scene.setPlayerCardsInteractive(!v);
+            if (v) {
+                scene.children.bringToTop(container);
+                container.iterate((child) => child.setDepth(10000));
+                refreshDiscoveryList();
+            }
         },
         refreshDiscoveryList
     };
