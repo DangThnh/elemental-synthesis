@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import {
-    displayElementName,
     DUAL_NAME_LIST,
     canonicalDualRelationshipLine,
     discoveryKeyForDuals,
@@ -42,6 +41,36 @@ function elementColorHex(internal) {
         Earth: 0xc17f59
     };
     return map[internal] ?? 0xffffff;
+}
+
+// --- Constants for icon-based diagrams ---
+const ICON_FRAME_R = 24;
+const ICON_IMG_W = 30;
+const ICON_IMG_H = 24;
+const KHAC_R = 105;
+const SINH_R = 120;
+const ARC_EXTRA_R = 36;
+const ARROW_OFFSET = ICON_FRAME_R + 4;
+
+/** Shorten a line segment by `offset` from the start point toward `to`. */
+function offsetPoint(fromX, fromY, toX, toY, offset) {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 0.001) return { x: fromX, y: fromY };
+    return {
+        x: fromX + (dx / dist) * offset,
+        y: fromY + (dy / dist) * offset
+    };
+}
+
+/** Place an icon image inside a circular frame at (x, y). */
+function createIconNode(scene, container, x, y, elementName) {
+    const iconKey = `icon_${elementName.toLowerCase()}`;
+    const col = elementColorHex(elementName);
+    const frame = scene.add.circle(x, y, ICON_FRAME_R, 0x1a1a2e, 1).setStrokeStyle(3, col);
+    const icon = scene.add.image(x, y, iconKey).setDisplaySize(ICON_IMG_W, ICON_IMG_H);
+    container.add([frame, icon]);
 }
 
 function drawArrowLine(g, x1, y1, x2, y2, color, width) {
@@ -124,7 +153,7 @@ export function createHelpReferencePanel(scene) {
         })
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => scene.toggleHelpPanel());
+        .on('pointerdown', () => container.setVisible(false));
     container.add(closeBtn);
 
     let yTop = height / 2 - panelH / 2 + 36;
@@ -144,8 +173,8 @@ export function createHelpReferencePanel(scene) {
     yTop += 34;
 
     const khacCx = cxPanel;
-    const khacCy = yTop + 95;
-    const R = 78;
+    const khacCy = yTop + 110;
+    const R = KHAC_R;
     const posKhac = {};
     for (let i = 0; i < 5; i++) {
         const el = CONTROLLING_CYCLE_ORDER[i];
@@ -169,23 +198,15 @@ export function createHelpReferencePanel(scene) {
         const a = CONTROLLING_CYCLE_ORDER[i];
         const b = CONTROLLING_CYCLE_ORDER[(i + 1) % 5];
         const c = elementColorHex(a);
-        drawArrowLine(gKhac, posKhac[a].x, posKhac[a].y, posKhac[b].x, posKhac[b].y, c, 4);
+        const start = offsetPoint(posKhac[a].x, posKhac[a].y, posKhac[b].x, posKhac[b].y, ARROW_OFFSET);
+        const end = offsetPoint(posKhac[b].x, posKhac[b].y, posKhac[a].x, posKhac[a].y, ARROW_OFFSET);
+        drawArrowLine(gKhac, start.x, start.y, end.x, end.y, c, 4);
     }
     container.add(gKhac);
 
     for (const el of CONTROLLING_CYCLE_ORDER) {
         const { x, y } = posKhac[el];
-        const t = scene.add
-            .text(x, y, displayElementName(el), {
-                fontSize: '20px',
-                color: '#fff',
-                fontStyle: 'bold',
-                backgroundColor: '#000000cc',
-                padding: { x: 8, y: 6 }
-            })
-            .setOrigin(0.5);
-        t.setStroke('#000', 5);
-        container.add(t);
+        createIconNode(scene, container, x, y, el);
     }
 
     yTop = khacCy + R + 38;
@@ -206,8 +227,8 @@ export function createHelpReferencePanel(scene) {
     yTop += 34;
 
     const sinhCx = cxPanel;
-    const sinhCy = yTop + 105;
-    const Rs = 86;
+    const sinhCy = yTop + 120;
+    const Rs = SINH_R;
     const posSinh = {};
     for (let i = 0; i < 5; i++) {
         const el = GENERATION_CYCLE_ORDER[i];
@@ -225,23 +246,13 @@ export function createHelpReferencePanel(scene) {
         const a1 = -Math.PI / 2 + (i * 2 * Math.PI) / 5 + 0.3;
         const a2 = -Math.PI / 2 + ((i + 1) * 2 * Math.PI) / 5 - 0.3;
         const col = elementColorHex(child);
-        drawArcArrow(gSinh, sinhCx, sinhCy, Rs + 10, a1, a2, col, 3);
+        drawArcArrow(gSinh, sinhCx, sinhCy, Rs + ARC_EXTRA_R, a1, a2, col, 3);
     }
     container.add(gSinh);
 
     for (const el of GENERATION_CYCLE_ORDER) {
         const { x, y } = posSinh[el];
-        const t = scene.add
-            .text(x, y, displayElementName(el), {
-                fontSize: '20px',
-                color: '#fff',
-                fontStyle: 'bold',
-                backgroundColor: '#000000cc',
-                padding: { x: 8, y: 6 }
-            })
-            .setOrigin(0.5);
-        t.setStroke('#000', 5);
-        container.add(t);
+        createIconNode(scene, container, x, y, el);
     }
 
     yTop = sinhCy + Rs + 38;
@@ -293,12 +304,11 @@ export function createHelpReferencePanel(scene) {
 
     return {
         container,
+        closeBtn,
         setVisible: (v) => {
             container.setVisible(v);
-            scene.setPlayerCardsInteractive(!v);
             if (v) {
                 scene.children.bringToTop(container);
-                container.iterate((child) => child.setDepth(10000));
                 refreshDiscoveryList();
             }
         },

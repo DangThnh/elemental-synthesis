@@ -35,34 +35,38 @@ export default class BattleScene extends Phaser.Scene {
 
     preload() {
         this.load.on('loaderror', (file) => {
-            console.warn('[Audio] Không tải được (có thể thiếu file hoặc sai đường dẫn):', file?.src ?? file);
+            console.warn('[Asset] Không tải được (có thể thiếu file hoặc sai đường dẫn):', file?.src ?? file);
         });
-        // Tự động load các key như 'sfx_win', 'sfx_lose' từ audioConfig.js
-        preloadBattleAudio(this);
-
-        // Placeholder cho icon nguyên tố và hiệu ứng: hãy đặt file PNG thật vào public/assets/icons và public/assets/effects
+        // Load element icons
         this.load.image('icon_fire', 'assets/icons/fire.png');
         this.load.image('icon_water', 'assets/icons/water.png');
         this.load.image('icon_wood', 'assets/icons/wood.png');
         this.load.image('icon_metal', 'assets/icons/metal.png');
         this.load.image('icon_earth', 'assets/icons/earth.png');
-        this.load.image('icon_ready', 'assets/icons/ready.png');
-        this.load.image('icon_ready_done', 'assets/icons/ready_done.png');
-        this.load.image('effect_crack', 'assets/effects/crack.png');
-        this.load.image('effect_shatter', 'assets/effects/shatter.png');
+        // Load crack overlay
+        this.load.image('crack_overlay', 'assets/crack.png');
+        // Load swords icon
+        this.load.image('icon_swords', 'assets/swords.png');
+        // Tự động load các key như 'sfx_win', 'sfx_lose' từ audioConfig.js
+        preloadBattleAudio(this);
     }
 
-    create() {
+    create(data) {
         const { width, height } = this.scale;
 
-        // Kiểm tra xem đã unlock audio chưa
-        if (!this.audioUnlocked) {
-            this.createStartScreen();
+        // Accept audioUnlocked from scene data (e.g., from TutorialScene)
+        if (data?.audioUnlocked) {
+            this.audioUnlocked = true;
+        }
+
+        // Nếu đã unlock audio thì vào game luôn
+        if (this.audioUnlocked) {
+            this.initializeGame(width, height);
             return;
         }
 
-        // Tiếp tục tạo game bình thường
-        this.initializeGame(width, height);
+        // Chưa unlock audio → hiển thị màn hình bắt đầu
+        this.createStartScreen();
     }
 
     createStartScreen() {
@@ -72,43 +76,56 @@ export default class BattleScene extends Phaser.Scene {
         this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e, 0.9);
 
         // Title
-        this.add.text(width / 2, height * 0.3, 'ELEMENTAL SYNTHESIS', {
+        this.add.text(width / 2, height * 0.25, 'ELEMENTAL SYNTHESIS', {
             fontSize: '48px',
             color: '#ffd700',
             fontStyle: 'bold'
         }).setOrigin(0.5);
 
         // Subtitle
-        this.add.text(width / 2, height * 0.4, 'Ngũ Hành Tương Sinh Tương Khắc', {
+        this.add.text(width / 2, height * 0.34, 'Ngũ Hành Tương Sinh Tương Khắc', {
             fontSize: '24px',
             color: '#ffffff'
         }).setOrigin(0.5);
 
         // Instructions
         const instructions = [
-            '🎮 Nhấn để bắt đầu game',
             '🔊 Nhấn để kích hoạt âm thanh',
             '⚔️ Chiến đấu với các nguyên tố ngũ hành',
             '💡 Nhấn "?" để xem bảng tra cứu'
         ];
 
         instructions.forEach((text, index) => {
-            this.add.text(width / 2, height * 0.5 + index * 40, text, {
+            this.add.text(width / 2, height * 0.44 + index * 36, text, {
                 fontSize: '20px',
                 color: '#cccccc'
             }).setOrigin(0.5);
         });
 
-        // Start button
-        const startBtn = this.add.rectangle(width / 2, height * 0.75, 300, 80, 0xffa500)
+        // Tutorial button
+        const tutorialBtn = this.add.rectangle(width / 2, height * 0.64, 320, 70, 0x2a6e2a)
+            .setStrokeStyle(3, 0x66ff66)
             .setInteractive({ useHandCursor: true })
             .on('pointerdown', () => {
                 this.unlockAudio();
-                this.scene.restart(); // Restart scene để vào game
+                this.scene.start('TutorialScene', { audioUnlocked: true });
             });
+        this.add.text(width / 2, height * 0.64, 'HƯỚNG DẪN', {
+            fontSize: '30px',
+            color: '#aaffaa',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
 
-        this.add.text(width / 2, height * 0.75, 'BẮT ĐẦU', {
-            fontSize: '32px',
+        // Play button
+        const startBtn = this.add.rectangle(width / 2, height * 0.78, 320, 70, 0xffa500)
+            .setStrokeStyle(3, 0xffdd44)
+            .setInteractive({ useHandCursor: true })
+            .on('pointerdown', () => {
+                this.unlockAudio();
+                this.scene.restart();
+            });
+        this.add.text(width / 2, height * 0.78, 'BẮT ĐẦU', {
+            fontSize: '30px',
             color: '#000',
             fontStyle: 'bold'
         }).setOrigin(0.5);
@@ -147,14 +164,8 @@ export default class BattleScene extends Phaser.Scene {
         this.enemyCoreCard = null;
 
         this.roundText = this.add.text(width / 2, 30, `VÒNG ${this.matchRound}/${this.maxRounds}`, { fontSize: '28px', color: '#fff' }).setOrigin(0.5);
-        // Loại bỏ text OPPONENT và PLAYER
 
         this.createHealthUI();
-
-        // Thay READY! bằng icon ba chấm nhấp nháy
-        this.enemyStateIcon = this.add.image(width - 120, height * 0.1, 'icon_ready').setVisible(false).setScale(0.75).setDepth(15);
-        this.enemyStateFallback = this.add.text(width - 120, height * 0.1, '…', { fontSize: '32px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false).setDepth(15);
-        this.enemyReadyTween = null;
 
         const helpBtn = this.add
             .rectangle(52, height * 0.5, 44, 44, 0x2a2a3d, 0.95)
@@ -167,46 +178,26 @@ export default class BattleScene extends Phaser.Scene {
             .setDepth(26);
         
         this.helpUi = createHelpReferencePanel(this);
-        helpBtn.on('pointerdown', () => this.toggleHelpPanel());
+        helpBtn.on('pointerdown', () => this.helpUi.setVisible(!this.helpUi.container.visible));
 
         this.fightBtn = this.add
             .rectangle(width / 2, height * 0.93, 200, 60, 0xffa500)
             .setInteractive()
             .on('pointerdown', () => this.executeFight());
-        // Thay text FIGHT bằng icon ⚔️
-        this.fightIcon = this.add.text(width / 2, height * 0.93, '⚔️', { fontSize: '40px' }).setOrigin(0.5);
+        this.fightIcon = this.add
+            .image(width / 2, height * 0.93, 'icon_swords')
+            .setDisplaySize(40, 40);
 
         this.fightCenter = { x: width / 2, y: height * 0.45 };
         this.slotFrameG = this.add.graphics().setDepth(0);
         this.drawSlotFrames();
         this.createSwapButton();
 
-        // Loại bỏ các text gây đè: CORE ZONE, PLAYER RESERVE, ENEMY RESERVE
+        this.add.text(this.coreX, this.coreY - this.coreDropRadius - 30, 'CORE ZONE', { fontSize: '16px', color: '#ffee88', fontStyle: 'bold' })
+            .setOrigin(0.5)
+            .setDepth(1);
 
         this.startStage();
-    }
-
-    toggleHelpPanel() {
-        const visible = !this.helpUi.container.visible;
-        this.helpUi.setVisible(visible);
-        this.setPlayerCardsInteractive(!visible);
-    }
-
-    setPlayerCardsInteractive(enabled) {
-        this.getPlayerReserveList().forEach(card => {
-            if (enabled) {
-                card.setInteractive({ draggable: true, useHandCursor: true });
-            } else {
-                card.disableInteractive();
-            }
-        });
-        if (this.playerCoreCard) {
-            if (enabled) {
-                this.playerCoreCard.setInteractive({ draggable: true, useHandCursor: true });
-            } else {
-                this.playerCoreCard.disableInteractive();
-            }
-        }
     }
 
     getCoreZone() { return { x: this.coreX, y: this.coreY, r: this.coreDropRadius }; }
@@ -250,7 +241,8 @@ export default class BattleScene extends Phaser.Scene {
         const { width } = this.scale;
         const topY = 60;
 
-        // Loại bỏ text PLAYER và ENEMY
+        this.add.text(20, 20, 'PLAYER', { fontSize: '18px', color: '#aaffaa', fontStyle: 'bold' }).setOrigin(0, 0);
+        this.add.text(width - 20, 20, 'ENEMY', { fontSize: '18px', color: '#ffaaaa', fontStyle: 'bold' }).setOrigin(1, 0);
 
         for (let i = 0; i < MAX_HEALTH; i++) {
             const x = 20 + i * 22;
@@ -346,13 +338,13 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     applyRoundOutcome(result) {
-        if (result === 'WIN') {
+        if (result === 'THẮNG') {
             this.playerHealth = Phaser.Math.Clamp(this.playerHealth + 1, 0, MAX_HEALTH);
             this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - 1, 0, MAX_HEALTH);
-        } else if (result === 'LOSE') {
+        } else if (result === 'THUA') {
             this.playerHealth = Phaser.Math.Clamp(this.playerHealth - 1, 0, MAX_HEALTH);
             this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth + 1, 0, MAX_HEALTH);
-        } else if (result === 'DRAW') {
+        } else if (result === 'HÒA') {
             this.playerHealth = Phaser.Math.Clamp(this.playerHealth - 1, 0, MAX_HEALTH);
             this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - 1, 0, MAX_HEALTH);
         }
@@ -362,11 +354,10 @@ export default class BattleScene extends Phaser.Scene {
     showMatchResult(finalWinner) {
         this.matchOver = true;
         const { width, height } = this.scale;
-        const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8).setDepth(100).setInteractive();
-        overlay.on('pointerdown', () => {});
-        const message = finalWinner === 'WIN'
-            ? 'Bạn đã thắng trận đấu này.'
-            : finalWinner === 'LOSE'
+        const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8).setDepth(100);
+        const message = finalWinner === 'THẮNG'
+            ? 'Bạn đã chiến thắng\ntrận đấu này.'
+            : finalWinner === 'THUA'
                 ? 'Bạn đã thua trận đấu này.'
                 : 'Trận đấu hòa.';
         const messageText = this.add.text(width / 2, height * 0.35, message, {
@@ -397,9 +388,9 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     finishMatch() {
-        const finalWinner = this.playerHealth > this.enemyHealth ? 'WIN' : this.playerHealth < this.enemyHealth ? 'LOSE' : 'DRAW';
-        if (finalWinner === 'WIN') playSfx(this, 'sfx_win');
-        if (finalWinner === 'LOSE') playSfx(this, 'sfx_lose');
+        const finalWinner = this.playerHealth > this.enemyHealth ? 'THẮNG' : this.playerHealth < this.enemyHealth ? 'THUA' : 'HÒA';
+        if (finalWinner === 'THẮNG') playSfx(this, 'sfx_win');
+        if (finalWinner === 'THUA') playSfx(this, 'sfx_lose');
         this.showMatchResult(finalWinner);
         this.fightBtn.disableInteractive();
         this.setSwapButtonState(false);
@@ -496,106 +487,112 @@ export default class BattleScene extends Phaser.Scene {
 
     async animateFightOrbit(playerCard, enemyCard) {
         const center = this.fightCenter;
-        playerCard.setDepth(30);
-        enemyCard.setDepth(30);
+        playerCard.setDepth(20);
+        enemyCard.setDepth(20);
 
-        const playerTarget = { x: center.x - 40, y: center.y };
-        const enemyTarget = { x: center.x + 40, y: center.y };
-
-        playerCard.scene.tweens.killTweensOf(playerCard);
-        enemyCard.scene.tweens.killTweensOf(enemyCard);
-
-        await Promise.all([
-            this.tweenPromise({ targets: playerCard, x: playerTarget.x, y: playerTarget.y, duration: 340, ease: 'Cubic.easeIn' }),
-            this.tweenPromise({ targets: enemyCard, x: enemyTarget.x, y: enemyTarget.y, duration: 340, ease: 'Cubic.easeIn' })
-        ]);
-
-        await this.wait(120);
-        return this.tweenPromise({ targets: [playerCard, enemyCard], y: `+=8`, duration: 180, yoyo: true, repeat: 1, ease: 'Sine.easeInOut' });
+        return Promise.all([
+            this.tweenPromise({
+                targets: playerCard,
+                x: center.x - 60,
+                y: center.y,
+                duration: 350,
+                ease: 'Power2.easeIn'
+            }),
+            this.tweenPromise({
+                targets: enemyCard,
+                x: center.x + 60,
+                y: center.y,
+                duration: 350,
+                ease: 'Power2.easeIn'
+            })
+        ]).then(() => {
+            playerCard.setRotation(0);
+            enemyCard.setRotation(0);
+        });
     }
 
-    setEnemyStateIcon(state) {
-        const validReady = state === 'pending' ? 'icon_ready' : state === 'ready' ? 'icon_ready_done' : null;
-        if (validReady && this.textures.exists(validReady)) {
-            this.enemyStateIcon.setTexture(validReady).setVisible(true);
-            this.enemyStateFallback.setVisible(false);
-        } else if (state === 'pending') {
-            this.enemyStateIcon.setVisible(false);
-            this.enemyStateFallback.setText('…').setVisible(true);
-        } else if (state === 'ready') {
-            this.enemyStateIcon.setVisible(false);
-            this.enemyStateFallback.setText('✓').setVisible(true);
-        } else {
-            this.enemyStateIcon.setVisible(false);
-            this.enemyStateFallback.setVisible(false);
+    createShatterPieces(card) {
+        const pieces = [];
+        const count = 10;
+        const color = card.cardData?.color ?? 0xffffff;
+        const centerX = card.x;
+        const centerY = card.y;
+
+        for (let i = 0; i < count; i++) {
+            const w = Phaser.Math.Between(14, 24);
+            const h = Phaser.Math.Between(10, 20);
+            const piece = this.add.rectangle(centerX, centerY, w, h, color, 1).setDepth(25);
+            piece.setOrigin(0.5);
+            piece.rotation = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            pieces.push(piece);
         }
+
+        return pieces;
     }
 
     async animateFightImpact(winnerCard, loserCard) {
         const center = this.fightCenter;
-        winnerCard.setDepth(32);
-        loserCard.setDepth(31);
+        winnerCard.setDepth(22);
+        loserCard.setDepth(21);
 
-        await this.tweenPromise({ targets: loserCard, x: center.x, y: center.y, duration: 260, ease: 'Sine.easeInOut' });
-        await this.tweenPromise({ targets: winnerCard, x: center.x, y: center.y - 120, duration: 260, ease: 'Sine.easeOut' });
-        await this.tweenPromise({ targets: winnerCard, y: center.y + 10, duration: 160, ease: 'Quad.easeIn' });
+        await Promise.all([
+            this.tweenPromise({
+                targets: winnerCard,
+                x: center.x - 40,
+                y: center.y,
+                duration: 220,
+                ease: 'Power2.easeIn'
+            }),
+            this.tweenPromise({
+                targets: loserCard,
+                x: center.x + 40,
+                y: center.y,
+                duration: 220,
+                ease: 'Power2.easeIn'
+            })
+        ]);
 
-        this.cameras.main.shake(180, 0.014);
-        playSfx(this, 'sfx_impact', { volume: 0.8 });
-
-        loserCard.disableInteractive();
-        loserCard.setVisible(false);
-        await this.createShatterPieces(loserCard);
-        loserCard.destroy();
-        await this.wait(240);
-    }
-
-    async createShatterPieces(card) {
-        const pieceCount = 8;
-        const pieces = [];
-        const color = card.cardData.color || 0xffffff;
-        const baseX = card.x;
-        const baseY = card.y;
-        const sizes = [18, 22, 24, 16, 20, 14, 18, 20];
-
-        for (let i = 0; i < pieceCount; i++) {
-            const w = sizes[i];
-            const h = sizes[(i + 3) % sizes.length];
-            const px = baseX + Phaser.Math.Between(-24, 24);
-            const py = baseY + Phaser.Math.Between(-28, 28);
-            const rect = this.add.rectangle(px, py, w, h, color, 1).setDepth(40).setStrokeStyle(1, 0x000000, 0.65);
-            pieces.push(rect);
-        }
-
-        const tweens = pieces.map((piece) => {
-            const sx = Phaser.Math.FloatBetween(0.8, 1.2);
-            const sy = Phaser.Math.FloatBetween(0.8, 1.2);
-            const dx = Phaser.Math.Between(-120, 120);
-            const dy = Phaser.Math.Between(-120, 120);
-            const rot = Phaser.Math.FloatBetween(-2, 2);
-            return this.tweenPromise({
-                targets: piece,
-                x: piece.x + dx,
-                y: piece.y + dy,
-                angle: rot * 45,
-                scaleX: sx,
-                scaleY: sy,
-                alpha: 0,
-                duration: 520,
-                ease: 'Cubic.easeOut'
-            });
+        await this.tweenPromise({
+            targets: winnerCard,
+            x: center.x,
+            y: center.y - 30,
+            duration: 180,
+            ease: 'Power2.easeOut'
+        });
+        await this.tweenPromise({
+            targets: winnerCard,
+            y: center.y + 12,
+            duration: 120,
+            ease: 'Quad.easeIn'
         });
 
-        await Promise.all(tweens);
-        pieces.forEach((piece) => piece.destroy());
+        const shards = this.createShatterPieces(loserCard);
+        loserCard.setVisible(false);
+        this.cameras.main.shake(200, 0.018);
+        playSfx(this, 'sfx_impact', { volume: 0.8 });
+
+        await Promise.all(shards.map((piece) => {
+            const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const distance = Phaser.Math.Between(80, 140);
+            const targetX = center.x + Math.cos(angle) * distance;
+            const targetY = center.y + Math.sin(angle) * distance;
+            const rotation = Phaser.Math.FloatBetween(-Math.PI, Math.PI);
+            return this.tweenPromise({
+                targets: piece,
+                x: targetX,
+                y: targetY,
+                alpha: 0,
+                rotation: rotation,
+                duration: 650,
+                ease: 'Cubic.easeOut',
+                onComplete: () => piece.destroy()
+            });
+        }));
+
+        await this.wait(200);
     }
 
     startStage() {
-        this.setEnemyStateIcon('pending');
-        if (this.enemyReadyTween) {
-            this.enemyReadyTween.remove();
-            this.enemyReadyTween = null;
-        }
         this.fightBtn.disableInteractive();
         this.fightBtn.fillColor = 0x555555;
         this.matchOver = false;
@@ -623,12 +620,8 @@ export default class BattleScene extends Phaser.Scene {
             this.playerReserveSlots[i] = new Card(this, x, y, playerDeck[i], true);
         }
 
-        const randomCoreIdx = Phaser.Math.Between(0, RESERVE_SLOT_COUNT - 1);
-        const coreCard = this.playerReserveSlots[randomCoreIdx];
-        const coreData = coreCard.cardData;
-        coreCard.destroy();
-        this.playerReserveSlots[randomCoreIdx] = null;
-        this.playerCoreCard = new Card(this, this.coreX, this.coreY, coreData, true);
+        // Do not auto-fill core slot during setup phase
+        // this.playerCoreCard will be null until fight button is pressed
 
         this.layoutPlayerReserveSlots(0);
         this.time.delayedCall(400, () => this.refreshCombatPreview());
@@ -690,18 +683,6 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     enemyReady() {
-        this.setEnemyStateIcon('ready');
-        if (this.enemyReadyTween) {
-            this.enemyReadyTween.remove();
-        }
-        const activeTarget = this.enemyStateIcon.visible ? this.enemyStateIcon : this.enemyStateFallback;
-        this.enemyReadyTween = this.tweens.add({
-            targets: activeTarget,
-            alpha: { from: 0.4, to: 1 },
-            yoyo: true,
-            repeat: -1,
-            duration: 600
-        });
         this.fightBtn.setInteractive();
         this.fightBtn.fillColor = 0xffa500;
     }
@@ -761,11 +742,14 @@ export default class BattleScene extends Phaser.Scene {
             if (mergeResult.valid) {
                 const coreInvolved = draggedIsCore || targetIsCore;
                 const anchor = bestTarget;
-                const newCard = new Card(this, anchor.x, anchor.y, mergeResult.cardData, true);
-                playSfx(this, 'sfx_merge');
 
                 this.clearSlotForCard(draggedCard); if (draggedIsCore) this.playerCoreCard = null;
                 this.clearSlotForCard(bestTarget); if (targetIsCore) this.playerCoreCard = null;
+
+                draggedCard.destroy(); bestTarget.destroy();
+
+                const newCard = new Card(this, anchor.x, anchor.y, mergeResult.cardData, true);
+                playSfx(this, 'sfx_merge');
 
                 if (coreInvolved) {
                     this.playerCoreCard = newCard;
@@ -776,9 +760,6 @@ export default class BattleScene extends Phaser.Scene {
                     this.playerReserveSlots[putIdx] = newCard;
                     this.layoutPlayerReserveSlots();
                 }
-
-                draggedCard.destroy();
-                bestTarget.destroy();
                 done = true;
             } else if (draggedIsCore && targetInReserve) {
                 this.clearSlotForCard(bestTarget);
@@ -846,16 +827,21 @@ export default class BattleScene extends Phaser.Scene {
     // ==============================================
     // LOGIC ÂM THANH NẰM TẬP TRUNG TẠI ĐÂY
     // ==============================================
-    async executeFight() {
+   async executeFight() {
         this.fightBtn.disableInteractive();
         this.swapBtn?.disableInteractive();
         this.input.enabled = false;
         playSfx(this, 'sfx_fight', { volume: 0.55 });
 
-        const waitScreen = this.add.rectangle(this.scale.width / 2, 100, this.scale.width, 160, 0x000000, 0.75).setDepth(100).setInteractive();
-        const clashText = this.add.text(this.scale.width / 2, 100, 'ĐANG ĐẤU...\nTÍNH TOÁN NGUYÊN TỐ', {
+        // Auto-fill core if empty
+        if (!this.playerCoreCard) {
+            this.ensurePlayerCoreFilled(0); // Instant fill
+        }
+
+        const waitScreen = this.add.rectangle(this.scale.width / 2, 100, this.scale.width, 160, 0x000000, 0.75).setDepth(10);
+        const clashText = this.add.text(this.scale.width / 2, 100, 'CHIẾN ĐẤU...\nTÍNH TOÁN NGUYÊN TỐ', {
             fontSize: '28px', color: '#ffcc00', align: 'center', fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(101);
+        }).setOrigin(0.5).setDepth(11);
 
         this.tweens.add({ targets: clashText, alpha: 0.2, yoyo: true, repeat: -1, duration: 500 });
 
@@ -875,37 +861,75 @@ export default class BattleScene extends Phaser.Scene {
             this.notifyDualDiscovery(playerCard.cardData.name, enemyCard.cardData.name);
         }
 
+        // 1. Phóng ra giữa sân
         await this.animateFightOrbit(playerCard, enemyCard);
 
-        const winnerCard = finalResult === 'WIN' ? playerCard : finalResult === 'LOSE' ? enemyCard : null;
-        const loserCard = finalResult === 'WIN' ? enemyCard : finalResult === 'LOSE' ? playerCard : null;
-        if (winnerCard && loserCard) {
+        // 2. Phân nhánh hoạt ảnh dựa trên kết quả
+        if (finalResult === 'HÒA') {
+            // --- NẾU HÒA: Rung màn hình, nứt và vỡ cả 2 lá ---
+            this.cameras.main.shake(150, 0.012);
+            playSfx(this, 'sfx_crack', { volume: 0.6 });
+            
+            await this.wait(400);
+
+            const pShards = this.createShatterPieces(playerCard);
+            const eShards = this.createShatterPieces(enemyCard);
+            playerCard.setVisible(false);
+            enemyCard.setVisible(false);
+
+            const center = this.fightCenter;
+            await Promise.all([...pShards, ...eShards].map(piece => {
+                const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                const d = Phaser.Math.Between(60, 120);
+                return this.tweenPromise({
+                    targets: piece, 
+                    x: center.x + Math.cos(a) * d, 
+                    y: center.y + Math.sin(a) * d, 
+                    alpha: 0, 
+                    rotation: Phaser.Math.FloatBetween(-Math.PI, Math.PI),
+                    duration: 600, 
+                    ease: 'Cubic.easeOut', 
+                    onComplete: () => piece.destroy()
+                });
+            }));
+
+            playerCard.destroy();
+            enemyCard.destroy();
+
+        } else {
+            // --- NẾU CÓ THẮNG/THUA: Áp sát, nện nhau và vỡ lá thua ---
+            const winnerCard = finalResult === 'THẮNG' ? playerCard : enemyCard;
+            const loserCard = finalResult === 'THẮNG' ? enemyCard : playerCard;
             await this.animateFightImpact(winnerCard, loserCard);
         }
 
+        // 3. Hiển thị text kết quả
         clashText.setText(`KẾT QUẢ: ${finalResult}!`);
         this.tweens.killTweensOf(clashText);
         clashText.setAlpha(1);
 
-        if (finalResult === 'WIN' || finalResult === 'LOSE') {
+        if (finalResult === 'THẮNG' || finalResult === 'THUA') {
             this.applyRoundOutcome(finalResult);
-            playSfx(this, finalResult === 'WIN' ? 'sfx_win' : 'sfx_lose');
+            playSfx(this, finalResult === 'THẮNG' ? 'sfx_win' : 'sfx_lose');
         }
 
-        if (finalResult === 'DRAW') {
+        // 4. Xử lý sau khi hiển thị kết quả
+        if (finalResult === 'HÒA') {
             waitScreen.destroy();
             clashText.setDepth(100);
-            this.time.delayedCall(800, () => {
+            
+            // Dừng 400ms để người chơi kịp nhìn text "HÒA" rồi mới chuyển Tàn Cuộc
+            this.time.delayedCall(400, () => {
                 clashText.setText('HÒA!\nTÀN CUỘC...');
                 this.reserveWarSpeedMult = 2.85;
 
                 this.resolveReserveWar().then((final) => {
                     this.reserveWarSpeedMult = 1;
                     this.applyRoundOutcome(final);
-                    clashText.setText(`CUỐI CÙNG: ${final}!`);
+                    clashText.setText(`FINAL: ${final}!`);
 
-                    if (final === 'WIN') playSfx(this, 'sfx_win');
-                    if (final === 'LOSE') playSfx(this, 'sfx_lose');
+                    if (final === 'THẮNG') playSfx(this, 'sfx_win');
+                    if (final === 'THUA') playSfx(this, 'sfx_lose');
 
                     this.time.delayedCall(1600, () => {
                         clashText.destroy();
@@ -922,6 +946,7 @@ export default class BattleScene extends Phaser.Scene {
             return;
         }
 
+        // Nếu kết thúc Thắng/Thua bình thường thì qua vòng luôn
         this.time.delayedCall(2000, () => {
             waitScreen.destroy();
             clashText.destroy();
@@ -934,7 +959,7 @@ export default class BattleScene extends Phaser.Scene {
             }
         });
     }
-
+    
     // ==========================================
     // CÁC HÀM BỔ TRỢ TÀN CUỘC (RESERVE WAR)
     // ==========================================
@@ -1023,18 +1048,25 @@ export default class BattleScene extends Phaser.Scene {
         return false;
     }
 
-    async resolveReserveWar() {
+   async resolveReserveWar() {
         const playerRowY = this.scale.height * 0.8;
         const enemyRowY = this.scale.height * 0.15;
+        const center = this.fightCenter; // Lấy tâm điểm màn hình đấu
 
         let pRow = [...this.getPlayerReserveList()];
         let eRow = [...this.enemyReserveCards];
 
+        const persistReserveRows = () => {
+            this.enemyReserveCards = eRow.slice();
+        };
+
+        // Bố cục lại hàng ngang
         await Promise.all([
             this.layoutReserveWarRow(pRow, playerRowY),
             this.layoutReserveWarRow(eRow, enemyRowY)
         ]);
 
+        // Tiến hành Auto-merge cho cả 2 bên
         let pCanMerge = true;
         let eCanMerge = true;
         while (pCanMerge || eCanMerge) {
@@ -1044,66 +1076,132 @@ export default class BattleScene extends Phaser.Scene {
 
         await this.wait(500);
 
+        // Bắt đầu từng lượt đấu trong Tàn Cuộc
         while (true) {
             pRow = this.sortLeftToRight(pRow);
             eRow = this.sortLeftToRight(eRow);
+            persistReserveRows();
 
+            // Kiểm tra điều kiện kết thúc tàn cuộc
             if (pRow.length === 0 && eRow.length === 0) {
                 this.syncPlayerSlotsAfterWar(pRow);
-                return 'DRAW';
+                return 'HÒA';
             }
             if (pRow.length === 0) {
                 this.syncPlayerSlotsAfterWar(pRow);
-                return 'LOSE';
+                return 'THUA';
             }
             if (eRow.length === 0) {
                 this.syncPlayerSlotsAfterWar(pRow);
-                return 'WIN';
+                return 'THẮNG';
             }
 
             const pCard = pRow[0];
             const eCard = eRow[0];
 
-            await Promise.all([
-                this.tweenPromise({ targets: pCard, y: playerRowY - 50, duration: 200 }),
-                this.tweenPromise({ targets: eCard, y: enemyRowY + 50, duration: 200 })
-            ]);
+            // TỐC ĐỘ ANIMATION (sẽ được nhân lên để đánh nhanh hơn)
+            const spd = this.reserveWarSpeedMult || 2;
 
             if (pCard.cardData.type === 'Dual' && eCard.cardData.type === 'Dual') {
                 this.notifyDualDiscovery(pCard.cardData.name, eCard.cardData.name);
             }
 
+            // 1. Phóng ra giữa sân đấu (Orbit Animation)
+            playSfx(this, 'sfx_fight', { volume: 0.55 });
+            pCard.setDepth(20);
+            eCard.setDepth(20);
+
+            await Promise.all([
+                this.tweenPromise({ targets: pCard, x: center.x - 60, y: center.y, duration: 350 / spd, ease: 'Power2.easeIn' }),
+                this.tweenPromise({ targets: eCard, x: center.x + 60, y: center.y, duration: 350 / spd, ease: 'Power2.easeIn' })
+            ]);
+
             const result = compareCards(pCard.cardData, eCard.cardData);
 
-            if (result === 'WIN') {
-                this.tweens.add({ targets: pCard, y: playerRowY, duration: 200 }); 
-                eCard.destroy();
-                eRow.shift();
-                playSfx(this, 'sfx_fight');
-                await this.wait(300);
-                this.syncPlayerSlotsAfterWar(pRow);
-                return 'WIN';
+            if (result === 'THẮNG' || result === 'THUA') {
+                // Phân loại kẻ thắng người thua
+                const winnerCard = result === 'THẮNG' ? pCard : eCard;
+                const loserCard = result === 'THẮNG' ? eCard : pCard;
+
+                winnerCard.setDepth(22);
+                loserCard.setDepth(21);
+
+                // 2. Kẻ thắng và kẻ thua áp sát nhau
+                await Promise.all([
+                    this.tweenPromise({ targets: winnerCard, x: center.x - 40, y: center.y, duration: 220 / spd, ease: 'Power2.easeIn' }),
+                    this.tweenPromise({ targets: loserCard, x: center.x + 40, y: center.y, duration: 220 / spd, ease: 'Power2.easeIn' })
+                ]);
+
+                // 3. Kẻ thắng vươn lên cao và nện mạnh xuống
+                await this.tweenPromise({ targets: winnerCard, x: center.x, y: center.y - 30, duration: 180 / spd, ease: 'Power2.easeOut' });
+                await this.tweenPromise({ targets: winnerCard, y: center.y + 12, duration: 120 / spd, ease: 'Quad.easeIn' });
+
+                // 4. Rung màn hình + vỡ vụn lá bài thua
+                this.cameras.main.shake(150, 0.015);
+                playSfx(this, 'sfx_impact', { volume: 0.8 });
+
+                const shards = this.createShatterPieces(loserCard);
+                loserCard.setVisible(false);
+
+                await Promise.all(shards.map(piece => {
+                    const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                    const d = Phaser.Math.Between(80, 140);
+                    return this.tweenPromise({
+                        targets: piece, x: center.x + Math.cos(a) * d, y: center.y + Math.sin(a) * d, alpha: 0, rotation: Phaser.Math.FloatBetween(-Math.PI, Math.PI),
+                        duration: 650 / spd, ease: 'Cubic.easeOut', onComplete: () => piece.destroy()
+                    });
+                }));
+
+                loserCard.destroy();
                 
-            } else if (result === 'LOSE') {
-                this.tweens.add({ targets: eCard, y: enemyRowY, duration: 200 });
-                pCard.destroy();
-                pRow.shift();
-                playSfx(this, 'sfx_fight');
-                await this.wait(300);
+                // 5. Trả lá bài chiến thắng về hàng ngang (Slot)
+                if (result === 'THẮNG') {
+                    eRow.shift();
+                    this.tweens.add({ targets: winnerCard, x: winnerCard.originalPos.x, y: playerRowY, duration: 300 / spd });
+                } else {
+                    pRow.shift();
+                    this.tweens.add({ targets: winnerCard, x: winnerCard.originalPos.x, y: enemyRowY, duration: 300 / spd });
+                }
+
+                persistReserveRows();
+                await this.wait(300 / spd);
                 this.syncPlayerSlotsAfterWar(pRow);
-                return 'LOSE';
                 
-            } else {
+                // Tàn cuộc: Gặp trận phân định thắng thua sẽ kết thúc chuỗi luôn
+                return result;
+
+            } else { // HÒA
+                // Rung màn hình và nứt vỡ cả 2 lá bài
+                this.cameras.main.shake(150, 0.012);
+                playSfx(this, 'sfx_crack', { volume: 0.6 });
+                
+                await this.wait(200 / spd);
+
+                const pShards = this.createShatterPieces(pCard);
+                const eShards = this.createShatterPieces(eCard);
+                pCard.setVisible(false);
+                eCard.setVisible(false);
+
+                // Hiệu ứng bay mảnh vỡ của 2 bên
+                await Promise.all([...pShards, ...eShards].map(piece => {
+                    const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                    const d = Phaser.Math.Between(60, 120);
+                    return this.tweenPromise({
+                        targets: piece, x: center.x + Math.cos(a) * d, y: center.y + Math.sin(a) * d, alpha: 0, rotation: Phaser.Math.FloatBetween(-Math.PI, Math.PI),
+                        duration: 600 / spd, ease: 'Cubic.easeOut', onComplete: () => piece.destroy()
+                    });
+                }));
+
                 pCard.destroy(); pRow.shift();
                 eCard.destroy(); eRow.shift();
-                playSfx(this, 'sfx_crack');
-                
+                persistReserveRows();
+
+                // Gom và dồn các lá bài còn lại lấp vào chỗ trống (nếu có)
                 await Promise.all([
                     this.layoutReserveWarRow(pRow, playerRowY),
                     this.layoutReserveWarRow(eRow, enemyRowY)
                 ]);
-                await this.wait(300);
-                // note
+                await this.wait(200 / spd);
             }
         }
     }

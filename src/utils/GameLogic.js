@@ -177,8 +177,8 @@ export function canonicalDualRelationshipLine(nameA, nameB) {
     const cb = getStubDualByName(second);
     if (!ca || !cb) return `${first} ? ${second}`;
     const r = compareCards(ca, cb);
-    if (r === 'DRAW') return `${first} = ${second}`;
-    if (r === 'WIN') return `${first} > ${second}`;
+    if (r === 'HÒA') return `${first} = ${second}`;
+    if (r === 'THẮNG') return `${first} > ${second}`;
     return `${second} > ${first}`;
 }
 
@@ -254,21 +254,21 @@ function singleVsSingleCompare(cardA, cardB) {
     const eb = getElementsForFight(cardB)[0];
 
     if (ea === eb) {
-        if (cardA.level > cardB.level) return 'WIN';
-        if (cardA.level < cardB.level) return 'LOSE';
-        return 'DRAW';
+        if (cardA.level > cardB.level) return 'THẮNG';
+        if (cardA.level < cardB.level) return 'THUA';
+        return 'HÒA';
     }
 
     const s = duelScoreAttackerVsDefender(ea, eb);
-    if (s > 0) return 'WIN';
-    if (s < 0) return 'LOSE';
+    if (s > 0) return 'THẮNG';
+    if (s < 0) return 'THUA';
     // Khác nguyên tố mà điểm = 0 (lý thuyết hiếm): tie-break ổn định
-    return ea < eb ? 'WIN' : 'LOSE';
+    return ea < eb ? 'THẮNG' : 'THUA';
 }
 
 export function compareCards(cardA, cardB) {
-    if (cardA.type === 'Dual' && cardB.type === 'Single') return 'WIN';
-    if (cardA.type === 'Single' && cardB.type === 'Dual') return 'LOSE';
+    if (cardA.type === 'Dual' && cardB.type === 'Single') return 'THẮNG';
+    if (cardA.type === 'Single' && cardB.type === 'Dual') return 'THUA';
 
     if (cardA.type === 'Single' && cardB.type === 'Single') {
         return singleVsSingleCompare(cardA, cardB);
@@ -276,14 +276,14 @@ export function compareCards(cardA, cardB) {
 
     if (cardA.type === 'Dual' && cardB.type === 'Dual') {
         const diff = elementalScore(cardA, cardB);
-        if (diff > 0) return 'WIN';
-        if (diff < 0) return 'LOSE';
-        if (cardA.level > cardB.level) return 'WIN';
-        if (cardA.level < cardB.level) return 'LOSE';
-        return 'DRAW';
+        if (diff > 0) return 'THẮNG';
+        if (diff < 0) return 'THUA';
+        if (cardA.level > cardB.level) return 'THẮNG';
+        if (cardA.level < cardB.level) return 'THUA';
+        return 'HÒA';
     }
 
-    return 'DRAW';
+    return 'HÒA';
 }
 
 /**
@@ -293,21 +293,9 @@ export function compareCards(cardA, cardB) {
 export function getWeakSideForPreview(playerCard, enemyCard) {
     if (!playerCard || !enemyCard) return 'none';
     const r = compareCards(playerCard, enemyCard);
-    if (r === 'WIN') return 'enemy';
-    if (r === 'LOSE') return 'player';
+    if (r === 'THẮNG') return 'enemy';
+    if (r === 'THUA') return 'player';
     return 'both';
 }
 
-/**
- * Text thành phần cho tooltip: Dual = "Hỏa + Thủy"; Single Lv>=2 = "Hỏa + Hỏa"; Lv1 = null (không hiện).
- */
-export function getCompositionTooltipText(cardData) {
-    if (!cardData) return null;
-    if (cardData.type === 'Dual' && Array.isArray(cardData.elements) && cardData.elements.length >= 2) {
-        return [cardData.elements[0], cardData.elements[1]];
-    }
-    if (cardData.type === 'Single' && (cardData.level ?? 1) >= 2) {
-        return [cardData.name, cardData.name];
-    }
-    return null;
-}
+
