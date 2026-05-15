@@ -356,7 +356,7 @@ export default class BattleScene extends Phaser.Scene {
         const { width, height } = this.scale;
         const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8).setDepth(100);
         const message = finalWinner === 'THẮNG'
-            ? 'Bạn đã chiến thắng trận đấu này.'
+            ? 'Bạn đã chiến thắng\ntrận đấu này.'
             : finalWinner === 'THUA'
                 ? 'Bạn đã thua trận đấu này.'
                 : 'Trận đấu hòa.';
