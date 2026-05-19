@@ -9,55 +9,56 @@ export default class Card extends Phaser.GameObjects.Container {
         this.isPlayer = isPlayer;
         this.originalPos = { x, y };
         
-        // FIX: Lưu lại trạng thái ban đầu để tránh bị phình to hoặc sai Layer
+        // Lưu lại tỷ lệ và layer gốc để không bị lỗi phình to/đè UI
         this.originalScale = 1;
-        this.originalDepth = isPlayer ? 2 : 1;
+        this.originalDepth = isPlayer ? 10 : 1;
 
+        // 1. Vẽ nền
         this.bg = scene.add.graphics();
         this.drawBackground();
 
-        // Icon hệ nguyên tố
-        this.elementIcon = scene.add.image(0, -30, '__DEFAULT').setVisible(false);
+        // 2. Icon hệ nguyên tố
+        this.elementIcon = scene.add.image(0, -30, null).setVisible(false);
         if (cardData.type === 'Single') {
             this.elementIcon.setTexture(`icon_${cardData.name.toLowerCase()}`);
             this.elementIcon.setVisible(true);
             this.elementIcon.setDisplaySize(60, 40); 
         }
 
-        // Title text cho Dual
+        // 3. Tên bài kép
         this.titleText = scene.add.text(0, -30, cardData.type === 'Dual' ? cardData.name : '', {
             fontSize: '22px', color: '#ffd700', fontStyle: 'bold', align: 'center'
         }).setOrigin(0.5);
         this.titleText.setStroke('#000000', 5);
 
+        // 4. Text Level
         this.text = scene.add.text(0, 10, `Lv${cardData.level}`, {
             fontSize: '22px', color: '#ffffff', fontStyle: 'bold', wordWrap: { width: 94 }, align: 'center', lineSpacing: 4
         }).setOrigin(0.5);
         this.text.setStroke('#000000', 4);
 
-        // Icons tương tác (+ và X) đẩy lên Depth 50
+        // 5. Icons (+ và X) -> Đặt Depth cao để nổi lên trên
         this.iconPlus = scene.add.text(35, -55, '+', { fontSize: '60px', color: '#00ff00', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false).setDepth(50);
         this.iconPlus.setStroke('#000000', 6);
         this.iconCross = scene.add.text(35, -55, 'X', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false).setDepth(50);
         this.iconCross.setStroke('#000000', 6);
 
-        // FIX LỖI CHE TOOLTIP: Đẩy các thành phần Tooltip lên Depth 100+
-        this.tipBg = scene.add.rectangle(0, -118, 132, 52, 0x1a1a1a, 0.95).setStrokeStyle(2, 0xffd700).setVisible(false).setDepth(100);
-        this.elementIcon1 = scene.add.image(-20, -118, '__DEFAULT').setVisible(false).setDepth(101);
-        this.elementIcon2 = scene.add.image(20, -118, '__DEFAULT').setVisible(false).setDepth(101);
-        this.plusText = scene.add.text(0, -118, '+', { fontSize: '18px', color: '#ffeeaa', fontStyle: 'bold', align: 'center' }).setOrigin(0.5).setVisible(false).setDepth(101);
+        // 6. Tooltip thành phần nguyên tố -> FIX: Đặt Depth 999 để luôn đè lên mọi thứ
+        this.tipBg = scene.add.rectangle(0, -118, 132, 52, 0x1a1a1a, 0.95).setStrokeStyle(2, 0xffd700).setVisible(false).setDepth(999);
+        this.elementIcon1 = scene.add.image(-20, -118, null).setVisible(false).setDepth(1000);
+        this.elementIcon2 = scene.add.image(20, -118, null).setVisible(false).setDepth(1000);
+        this.plusText = scene.add.text(0, -118, '+', { fontSize: '18px', color: '#ffeeaa', fontStyle: 'bold', align: 'center' }).setOrigin(0.5).setVisible(false).setDepth(1000);
         this.plusText.setStroke('#000000', 3);
 
-        // Dùng nguyên ảnh Crack của bạn
+        // 7. Crack overlay
         this.crackImage = scene.add.image(0, 0, 'crack_overlay').setVisible(false).setDepth(5);
-        this.crackImage.setDisplaySize(100, 140);
+        this.crackImage.setDisplaySize(100, 140); 
 
         this.add([this.bg, this.elementIcon, this.titleText, this.text, this.iconPlus, this.iconCross, this.tipBg, this.elementIcon1, this.elementIcon2, this.plusText, this.crackImage]);
         scene.add.existing(this);
 
         this.crackActive = false;
         this.crackTween = null;
-        this.strokeTween = null;
         this.hoverTargets = [];
 
         this.setDepth(this.originalDepth);
@@ -86,6 +87,7 @@ export default class Card extends Phaser.GameObjects.Container {
         } else {
             this.bg.fillStyle(this.cardData.color, 1);
         }
+
         this.bg.fillRect(-w / 2, -h / 2, w, h);
         this.bg.lineStyle(thickness, strokeColor, 1);
         this.bg.strokeRect(-w / 2, -h / 2, w, h);
@@ -105,10 +107,8 @@ export default class Card extends Phaser.GameObjects.Container {
         }
         if (elements.length < 2) { this.hideCompositionTooltip(); return; }
         
-        this.elementIcon1.setTexture(`icon_${elements[0].toLowerCase()}`);
-        this.elementIcon1.setDisplaySize(25, 25);
-        this.elementIcon2.setTexture(`icon_${elements[1].toLowerCase()}`);
-        this.elementIcon2.setDisplaySize(25, 25);
+        this.elementIcon1.setTexture(`icon_${elements[0].toLowerCase()}`); this.elementIcon1.setDisplaySize(25, 25);
+        this.elementIcon2.setTexture(`icon_${elements[1].toLowerCase()}`); this.elementIcon2.setDisplaySize(25, 25);
         
         this.tipBg.setVisible(true); this.elementIcon1.setVisible(true); this.elementIcon2.setVisible(true); this.plusText.setVisible(true);
         this.tipBg.setSize(132, 52); 
@@ -128,8 +128,7 @@ export default class Card extends Phaser.GameObjects.Container {
     setCrackPreview(active) {
         if (active) {
             if (this.crackActive) return; 
-            this.crackImage.setVisible(true);
-            this.crackActive = true;
+            this.crackImage.setVisible(true); this.crackActive = true;
             if (!this.crackTween && this.scene) {
                 this.crackTween = this.scene.tweens.add({ targets: this, alpha: { from: 0.82, to: 1 }, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
             }
@@ -143,8 +142,7 @@ export default class Card extends Phaser.GameObjects.Container {
         if (this.cardData.type === 'Dual') {
             this.titleText.setText(this.cardData.name); this.titleText.setVisible(true); this.elementIcon.setVisible(false);
         } else {
-            this.titleText.setVisible(false);
-            this.elementIcon.setTexture(`icon_${this.cardData.name.toLowerCase()}`); this.elementIcon.setVisible(true); this.elementIcon.setDisplaySize(60, 40); 
+            this.titleText.setVisible(false); this.elementIcon.setTexture(`icon_${this.cardData.name.toLowerCase()}`); this.elementIcon.setVisible(true); this.elementIcon.setDisplaySize(60, 40);
         }
         this.text.setText(`Lv${this.cardData.level}`); this.text.setColor('#ffffff'); this.text.setStroke('#000000', 4);
     }
@@ -157,27 +155,24 @@ export default class Card extends Phaser.GameObjects.Container {
             this.clearCrackPreview(); 
             this.hideCompositionTooltip();
             
-            // FIX LỖI ĐÈ DRAWER: Set Depth cố định (80) thay vì bringToTop (Drawer là 100)
+            // FIX: Gán Layer cố định 80 khi kéo để nổi lên, nhưng vẫn chìm dưới Drawer (Depth 100)
             this.originalDepth = this.depth;
             this.setDepth(80);
             
-            // FIX LỖI PHÌNH TO MÃI MÃI: Nhân với scale hiện tại, không gán chết
+            // FIX LỖI PHÌNH TO: Lấy đúng tỷ lệ hiện tại x 1.1 thay vì ép cứng
             this.originalScale = this.scale;
             this.scene.tweens.add({ targets: this, scale: this.originalScale * 1.1, duration: 100 });
             this.originalPos = { x: this.x, y: this.y };
-
-            this.strokeTween = this.scene.tweens.add({ targets: this, strokeColor: { from: this.getBaseStrokeColor(), to: 0xffff00 }, yoyo: true, repeat: -1, duration: 300 });
         });
 
         this.on('drag', (pointer, dragX, dragY) => { this.x = dragX; this.y = dragY; this.checkHoverTargets(); });
 
         this.on('dragend', () => {
-            this.setDepth(this.originalDepth); // Trả lại Depth gốc
-            this.scene.tweens.add({ targets: this, scale: this.originalScale, duration: 100 }); // Trả lại Scale gốc
+            this.setDepth(this.originalDepth); 
+            this.scene.tweens.add({ targets: this, scale: this.originalScale, duration: 100 });
             this.iconPlus.setVisible(false); this.iconCross.setVisible(false);
             
-            if (this.strokeTween) { this.strokeTween.remove(); this.strokeTween = null; }
-            this.hoverTargets.forEach(target => { if (target.strokeTween) { target.strokeTween.remove(); target.strokeTween = null; }});
+            this.hoverTargets.forEach(target => target.drawBackground(false));
             this.hoverTargets = [];
             this.scene.handleCardDrop(this);
         });
@@ -189,7 +184,7 @@ export default class Card extends Phaser.GameObjects.Container {
 
     checkHoverTargets() {
         this.iconPlus.setVisible(false); this.iconCross.setVisible(false);
-        this.hoverTargets.forEach(target => { if (target.strokeTween) { target.strokeTween.remove(); target.strokeTween = null; }});
+        this.hoverTargets.forEach(target => target.drawBackground(false));
         this.hoverTargets = [];
 
         if (this.scene.playerCoreCard && this.scene.getReserveSlotIndexOfCard?.(this) >= 0) {
@@ -198,9 +193,9 @@ export default class Card extends Phaser.GameObjects.Container {
                 const mergeData = this.scene.logic.checkMerge(this.cardData, this.scene.playerCoreCard.cardData);
                 if (mergeData.valid) {
                     this.iconPlus.setVisible(true);
-                    this.scene.playerCoreCard.strokeTween = this.scene.tweens.add({ targets: this.scene.playerCoreCard, strokeColor: { from: this.scene.playerCoreCard.getBaseStrokeColor(), to: 0xffff00 }, yoyo: true, repeat: -1, duration: 300 });
+                    this.scene.playerCoreCard.drawBackground(true);
                     this.hoverTargets.push(this.scene.playerCoreCard);
-                } else { this.iconCross.setVisible(true); }
+                } else { this.iconPlus.setVisible(true); /* Đổi chỗ Swap */ }
                 return;
             }
         }
@@ -211,7 +206,7 @@ export default class Card extends Phaser.GameObjects.Container {
                 const mergeData = this.scene.logic.checkMerge(this.cardData, target.cardData);
                 if (mergeData.valid) {
                     this.iconPlus.setVisible(true);
-                    target.strokeTween = this.scene.tweens.add({ targets: target, strokeColor: { from: target.getBaseStrokeColor(), to: 0xffff00 }, yoyo: true, repeat: -1, duration: 300 });
+                    target.drawBackground(true);
                     this.hoverTargets.push(target);
                 } else { this.iconCross.setVisible(true); }
                 break;
