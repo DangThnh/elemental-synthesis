@@ -1,8 +1,5 @@
 import Phaser from 'phaser';
 import BattleScene from './scenes/BattleScene';
-import TutorialScene from './scenes/TutorialScene';
-import TutorialScene2 from './scenes/TutorialScene2';
-import TutorialScene3 from './scenes/TutorialScene3';
 import './style.css';
 
 // Kích thước chuẩn cho 9:16 (Ví dụ: 720x1280)
