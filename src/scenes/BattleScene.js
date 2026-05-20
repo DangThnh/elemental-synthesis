@@ -8,8 +8,8 @@ import { createHelpReferencePanel, discoverDualPairFromFight } from '../ui/HelpR
 import { preloadBattleAudio, playSfx } from '../audio/GameAudio';
 
 // --- IMPORT CÁC SYSTEM MỚI ---
-import PoolSystem from '../systems/PoolSystem';
-import AISystem from '../systems/AISystem';
+//import PoolSystem from '../systems/PoolSystem';
+//import AISystem from '../systems/AISystem';
 
 const RESERVE_SLOT_COUNT = 5;
 const ON_CARD_RADIUS = 62;
@@ -286,7 +286,7 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         // TÁCH LOGIC: Dùng PoolSystem để rút bài
-        const newReserve = this.poolSystem.drawCards(this.matchRound);
+         const newReserve = this.poolSystem.drawCards(RESERVE_SLOT_COUNT, this.matchRound);
         
         const sourceY = this.playerReserveY - 220;
         for (let i = 0; i < RESERVE_SLOT_COUNT; i++) {
@@ -352,28 +352,32 @@ export default class BattleScene extends Phaser.Scene {
    playAITurn() {
         const { width } = this.scale;
 
-        // GỌI AI SYSTEM ĐỂ LẤY QUYẾT ĐỊNH
+        // 1. GỌI AI SYSTEM ĐỂ NHẬN LỆNH (Tách biệt hoàn toàn logic suy nghĩ)
         const decision = AISystem.decideMove(this.enemyReserveCards, this.matchRound);
 
-        if (!decision) return; // Hết bài
+        if (!decision) return; // Nếu địch không còn bài, bỏ qua
 
+        // 2. BATTLE SCENE CHỈ THỰC THI HOẠT ẢNH DỰA TRÊN LỆNH CỦA AI
         if (decision.action === 'MERGE') {
             const { cardA, cardB, resultData } = decision;
 
+            // Hoạt ảnh 2 lá bài bay vào nhau
             this.tweens.add({
                 targets: cardA, x: cardB.x, y: cardB.y, duration: 500,
                 onComplete: () => {
+                    // Xóa 2 lá bài cũ khỏi mảng và hủy đối tượng
                     cardA.destroy(); cardB.destroy();
                     this.enemyReserveCards = this.enemyReserveCards.filter((c) => c !== cardA && c !== cardB);
 
+                    // Tạo lá bài Kép mới
                     const newDual = new Card(this, cardB.x, cardB.y, resultData, false);
-                    newDual.setScale(0.55);
+                    newDual.setScale(0.65);
 
+                    // Đợi 0.5s rồi bay vào Core Slot
                     this.time.delayedCall(500, () => {
                         this.tweens.add({
                             targets: newDual, x: width / 2, y: this.enemyCoreY, duration: 500,
                             onComplete: () => {
-                                newDual.setScale(0.75); // Phóng to Core của AI
                                 this.enemyCoreCard = newDual;
                                 this.enemyReady();
                                 this.refreshCombatPreview();
@@ -386,14 +390,14 @@ export default class BattleScene extends Phaser.Scene {
         else if (decision.action === 'PLAY') {
             const chosenCard = decision.card;
             
-            // Xóa lá bài được chọn khỏi mảng Reserve của AI
+            // Tìm và xóa lá bài được chọn khỏi mảng Reserve của Địch
             const idx = this.enemyReserveCards.indexOf(chosenCard);
             if (idx > -1) this.enemyReserveCards.splice(idx, 1);
 
+            // Hoạt ảnh bay thẳng vào Core Slot
             this.tweens.add({
                 targets: chosenCard, x: width / 2, y: this.enemyCoreY, duration: 800,
                 onComplete: () => {
-                    chosenCard.setScale(0.75);
                     this.enemyCoreCard = chosenCard;
                     this.enemyReady();
                     this.refreshCombatPreview();
@@ -834,6 +838,7 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     resetMatch() {
+        this.poolSystem.initializePool();
         this.matchOver = false; this.matchRound = 1; this.currentStage = 1;
         this.playerHealth = START_HEALTH; this.enemyHealth = START_HEALTH;
         this.updateHealthUI(); this.startStage();

@@ -2,18 +2,18 @@ import { checkMerge } from '../utils/GameLogic';
 
 export default class AISystem {
     /**
-     * Đọc các lá bài trên tay AI và quyết định nước đi.
-     * @param {Array} enemyReserveCards - Danh sách bài dự bị (chứa các đối tượng Card)
+     * Phân tích và quyết định hành động của Kẻ địch
+     * @param {Array} enemyReserveCards - Danh sách bài trên tay Địch (các đối tượng Card)
      * @param {number} currentRound - Vòng đấu hiện tại
-     * @returns {Object} Lệnh gửi về cho BattleScene thực thi
+     * @returns {Object|null} Lệnh gửi về cho BattleScene thực thi
      */
     static decideMove(enemyReserveCards, currentRound) {
         
-        // Lọc ra các lá bài còn tồn tại trên bàn
+        // 1. Lọc ra các lá bài còn tồn tại (active) trên bàn
         const availableCards = enemyReserveCards.filter(c => c && c.active);
-        if (availableCards.length === 0) return null;
+        if (availableCards.length === 0) return null; // Hết bài để đánh
 
-        // TỪ VÒNG 2 TRỞ ĐI: AI MỚI BIẾT GHÉP BÀI
+        // 2. TỪ VÒNG 2 TRỞ ĐI: Ưu tiên dò tìm xem có bài để GHÉP hay không
         if (currentRound >= 2) {
             for (let i = 0; i < availableCards.length; i++) {
                 for (let j = i + 1; j < availableCards.length; j++) {
@@ -21,7 +21,9 @@ export default class AISystem {
                     const cardB = availableCards[j];
                     
                     const res = checkMerge(cardA.cardData, cardB.cardData);
+                    
                     if (res.valid) {
+                        // AI tìm thấy 2 lá có thể ghép, trả về lệnh MERGE
                         return {
                             action: 'MERGE',
                             cardA: cardA,
@@ -33,11 +35,14 @@ export default class AISystem {
             }
         }
 
-        // NẾU KHÔNG GHÉP ĐƯỢC (hoặc Vòng 1): CHỌN BÀI NGẪU NHIÊN ĐỂ ĐÁNH
+        // 3. NẾU KHÔNG GHÉP ĐƯỢC (hoặc đang ở Vòng 1): Chọn 1 lá ngẫu nhiên để ĐÁNH
         const randomIdx = Math.floor(Math.random() * availableCards.length);
+        const chosenCard = availableCards[randomIdx];
+        
         return {
             action: 'PLAY',
-            card: availableCards[randomIdx]
+            card: chosenCard,
+            index: randomIdx // Index trong mảng availableCards
         };
     }
 }

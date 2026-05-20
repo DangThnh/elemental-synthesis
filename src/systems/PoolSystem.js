@@ -2,12 +2,12 @@ import { Elements } from '../utils/GameLogic';
 
 export default class PoolSystem {
     constructor() {
-        this.deck = []; // Bể bài chung chứa 60 lá
+        this.deck = []; // Bể bài chung 60 lá
         this.initializePool();
     }
 
     /**
-     * Khởi tạo 60 lá bài (12 lá x 5 nguyên tố)
+     * Khởi tạo 60 lá bài (12 lá x 5 nguyên tố cơ bản)
      */
     initializePool() {
         this.deck = [];
@@ -18,7 +18,7 @@ export default class PoolSystem {
                 this.deck.push({
                     name: el,
                     type: 'Single',
-                    level: 1, // Mặc định Lvl 1, sẽ nâng cấp tùy vòng đấu
+                    level: 1, // Mặc định Lvl 1
                     elements: [el],
                     color: Elements[el.toUpperCase()].color
                 });
@@ -39,12 +39,15 @@ export default class PoolSystem {
 
     /**
      * Rút số lượng lá bài yêu cầu từ bể
-     * Áp dụng The Climax Curve (Vòng càng cao, tỉ lệ ra bài Lvl 2 càng lớn)
+     * Áp dụng "The Climax Curve": Vòng càng cao, tỉ lệ bài Lvl 2 càng lớn
+     * @param {number} amount - Số lượng lá bài cần rút
+     * @param {number} currentRound - Vòng đấu hiện tại
+     * @returns {Array} Mảng các lá bài đã rút
      */
-    drawCards(amount, currentRound) {
+    drawCards(amount, currentRound = 1) {
         let hand = [];
         
-        // Tỉ lệ bài Lvl 2 theo The Climax Curve
+        // Cấu hình tỉ lệ bài Lvl 2 theo The Climax Curve (như GDD)
         let level2Chance = 0;
         if (currentRound === 2) level2Chance = 0.10; // 10%
         else if (currentRound === 3) level2Chance = 0.30; // 30%
@@ -52,17 +55,18 @@ export default class PoolSystem {
         else if (currentRound >= 5) level2Chance = 0.80; // 80%
 
         for (let i = 0; i < amount; i++) {
+            // Nếu bể bài hết, tự động nạp lại (trong thực tế có thể xử lý khác)
             if (this.deck.length === 0) {
-                console.warn("Hết bài! Khởi tạo lại bể bài (Trong thực tế có thể thua/hòa).");
+                console.warn("Bể bài đã cạn! Tự động khởi tạo lại.");
                 this.initializePool(); 
             }
 
             // Rút 1 lá từ đỉnh bộ bài
             let card = this.deck.pop();
 
-            // Nâng cấp Lvl 2 nếu trúng tỉ lệ
+            // Nếu may mắn trúng tỉ lệ, nâng cấp thành lá Lvl 2
             if (Math.random() < level2Chance) {
-                card.level = 2;
+                card = { ...card, level: 2 }; // Tạo bản sao để tránh lỗi tham chiếu
             }
 
             hand.push(card);

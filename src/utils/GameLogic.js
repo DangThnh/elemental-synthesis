@@ -128,7 +128,8 @@ export function checkMerge(cardA, cardB) {
         if (DualElements[combo]) {
             const dualName = DualElements[combo];
             const elements = [cardA.name, cardB.name];
-            return { valid: true, cardData: createDualCardData(dualName, elements, 1) };
+            const nextLevel = cardA.level === 2 ? 2 : 1;
+            return { valid: true, cardData: createDualCardData(dualName, elements, nextLevel) };
         }
     }
 
