@@ -8,8 +8,8 @@ const RESERVE_SLOT_COUNT = 5;
 const ON_CARD_RADIUS = 62;
 const SLOT_SNAP_RADIUS = 58;
 const MAX_MATCH_ROUNDS = 5;
-const START_HEALTH = 5;
-const MAX_HEALTH = 10;
+const START_HEALTH = 100;
+const MAX_HEALTH = 100;
 
 export default class BattleScene extends Phaser.Scene {
     constructor() {
@@ -25,8 +25,12 @@ export default class BattleScene extends Phaser.Scene {
         // Quản lý UI
         this.slotFrameG = null;
         this.fightCenter = null;
-        this.playerHeartIcons = [];
-        this.enemyHeartIcons = [];
+        this.playerHealthBarBg = null;
+        this.playerHealthBarFill = null;
+        this.enemyHealthBarBg = null;
+        this.enemyHealthBarFill = null;
+        this.playerHealthLabel = null;
+        this.enemyHealthLabel = null;
         this.matchOver = false;
         this.roundText = null;
         this.swapBtn = null;
@@ -132,8 +136,8 @@ export default class BattleScene extends Phaser.Scene {
 
         // Core Zone nhỏ cho đối thủ nằm trong khu vực Enemy Zone
         this.enemyCoreX = width / 2;
-        this.enemyCoreY = this.enemyZoneH - 30;
-        this.enemyCoreDropRadius = 44;
+        this.enemyCoreDropRadius = 60;
+        this.enemyCoreY = Math.max(this.enemyCoreDropRadius + 20, this.enemyZoneH - this.enemyCoreDropRadius - 10);
 
         this.playerReserveSlots = Array(RESERVE_SLOT_COUNT).fill(null);
         this.enemyReserveCards = [];
@@ -191,18 +195,25 @@ export default class BattleScene extends Phaser.Scene {
         this.drawerCont = this.add.container(startX, this.playerReserveY - 20).setDepth(30);
         
         // Nền ngăn kéo
-        const bg = this.add.rectangle(drawerWidth/2, 0, drawerWidth, 140, 0x2c3e50, 0.95).setStrokeStyle(2, 0xffffff);
+        const bg = this.add.rectangle(drawerWidth/2, 0, drawerWidth, 140, 0x2c3e50, 0.95)
+            .setStrokeStyle(2, 0xffffff)
+            .setInteractive()
+            .on('pointerdown', (pointer, localX, localY, event) => {
+                event.stopPropagation();
+            });
         
         // 3 ô chứa lá chức năng
+        const drawerSlots = [];
         for(let i=0; i<3; i++) {
-            this.add.rectangle(50 + i*(cardWidth + 10), 0, cardWidth, 120).setStrokeStyle(2, 0xaaaaaa);
+            const slot = this.add.rectangle(50 + i*(cardWidth + 10), 0, cardWidth, 120).setStrokeStyle(2, 0xaaaaaa);
+            drawerSlots.push(slot);
         }
 
         // Tab kéo
         const tab = this.add.rectangle(drawerWidth + 15, 0, 30, 80, 0x34495e).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xffffff);
         const tabIcon = this.add.text(drawerWidth + 15, 0, '>', { fontSize: '20px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
         
-        this.drawerCont.add([bg, tab, tabIcon]);
+        this.drawerCont.add([bg, ...drawerSlots, tab, tabIcon]);
 
         tab.on('pointerdown', () => {
             this.drawerOpen = !this.drawerOpen;
@@ -237,7 +248,7 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         // Viền Slot Enemy
-        const enemyY = this.enemyZoneH * 0.55;
+        const enemyY = this.enemyZoneH * 0.35;
         const enemyStartX = width / 2 - 180;
         const enemySpacing = 90;
         for (let i = 0; i < RESERVE_SLOT_COUNT; i++) {
@@ -247,37 +258,50 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     createHealthUI() {
-        const { width } = this.scale;
-        const topY = 60;
+        const barWidth = 260;
+        const barHeight = 18;
 
-        this.add.text(20, 20, 'PLAYER', { fontSize: '18px', color: '#aaffaa', fontStyle: 'bold' }).setOrigin(0, 0);
-        this.add.text(width - 20, 20, 'ENEMY', { fontSize: '18px', color: '#ffaaaa', fontStyle: 'bold' }).setOrigin(1, 0);
+        const playerBarX = 140;
+        const playerBarY = this.playerSprite.y - 112;
+        const enemyBarX = this.scale.width - 120;
+        const enemyBarY = this.enemySprite.y - 100;
 
-        for (let i = 0; i < MAX_HEALTH; i++) {
-            const x = 20 + i * 22;
-            const icon = this.add.text(x, topY, '♥', { fontSize: '22px', color: '#4d4d4d' }).setOrigin(0, 0.5).setDepth(5);
-            this.playerHeartIcons.push(icon);
-        }
-        for (let i = 0; i < MAX_HEALTH; i++) {
-            const x = width - 20 - i * 22;
-            const icon = this.add.text(x, topY, '♥', { fontSize: '22px', color: '#4d4d4d' }).setOrigin(1, 0.5).setDepth(5);
-            this.enemyHeartIcons.push(icon);
-        }
+        this.playerHealthBarBg = this.add.rectangle(playerBarX, playerBarY, barWidth, barHeight, 0x222222, 0.95)
+            .setStrokeStyle(2, 0x88ff88)
+            .setOrigin(0.5)
+            .setDepth(5);
+        this.playerHealthBarFill = this.add.rectangle(playerBarX - barWidth / 2, playerBarY, barWidth, barHeight, 0x2ecc71)
+            .setOrigin(0, 0.5)
+            .setDepth(6);
+
+        this.enemyHealthBarBg = this.add.rectangle(enemyBarX, enemyBarY, barWidth, barHeight, 0x222222, 0.95)
+            .setStrokeStyle(2, 0xff8888)
+            .setOrigin(0.5)
+            .setDepth(5);
+        this.enemyHealthBarFill = this.add.rectangle(enemyBarX - barWidth / 2, enemyBarY, barWidth, barHeight, 0xe74c3c)
+            .setOrigin(0, 0.5)
+            .setDepth(6);
+        this.enemyReadyText = this.add.text(this.enemySprite.x - 140, this.enemySprite.y - 10, 'READY!', {
+            fontSize: '22px', color: '#ffee88', fontStyle: 'bold', backgroundColor: 'rgba(30,30,30,0.8)', padding: { x: 10, y: 6 }
+        }).setOrigin(1, 0.5).setDepth(20).setVisible(false);
+
         this.updateHealthUI();
     }
 
     updateHealthUI() {
-        const playerCount = Phaser.Math.Clamp(this.playerHealth, 0, MAX_HEALTH);
-        const enemyCount = Phaser.Math.Clamp(this.enemyHealth, 0, MAX_HEALTH);
+        const clampedPlayer = Phaser.Math.Clamp(this.playerHealth, 0, START_HEALTH);
+        const clampedEnemy = Phaser.Math.Clamp(this.enemyHealth, 0, START_HEALTH);
+        const playerRatio = clampedPlayer / START_HEALTH;
+        const enemyRatio = clampedEnemy / START_HEALTH;
+        const maxBarWidth = this.playerHealthBarBg.width;
 
-        this.playerHeartIcons.forEach((icon, index) => {
-            icon.setColor(index < playerCount ? '#ff4d4d' : '#4d4d4d');
-            icon.setVisible(index < MAX_HEALTH);
-        });
-        this.enemyHeartIcons.forEach((icon, index) => {
-            icon.setColor(index < enemyCount ? '#ff4d4d' : '#4d4d4d');
-            icon.setVisible(index < MAX_HEALTH);
-        });
+        if (this.playerHealthBarFill) {
+            this.playerHealthBarFill.width = Math.max(0, maxBarWidth * playerRatio);
+        }
+        if (this.enemyHealthBarFill) {
+            this.enemyHealthBarFill.width = Math.max(0, maxBarWidth * enemyRatio);
+        }
+
         this.setSwapButtonState(this.playerHealth > 0 && !this.matchOver);
     }
 
@@ -289,7 +313,7 @@ export default class BattleScene extends Phaser.Scene {
             .setDepth(20);
         this.add.text(x + 80, this.coreY, '↻', { fontSize: '26px', color: '#ffd700', fontStyle: 'bold' }).setOrigin(0.5).setDepth(21);
 
-        this.swapTooltip = this.add.text(x + 80, this.coreY - 40, 'Đổi bài: tiêu tốn 1 máu', {
+        this.swapTooltip = this.add.text(x + 80, this.coreY - 40, 'Đổi bài: tiêu tốn 10 máu', {
             fontSize: '16px', color: '#ffee88', backgroundColor: '#1a1a1a', padding: { x: 8, y: 6 }
         }).setOrigin(0.5).setDepth(25).setVisible(false);
 
@@ -313,7 +337,7 @@ export default class BattleScene extends Phaser.Scene {
     trySwapReserve() {
         if (this.matchOver || this.playerHealth <= 0) return;
         if (!this.playerReserveSlots.some((card) => card?.active)) return;
-        this.playerHealth = Math.max(this.playerHealth - 1, 0);
+        this.playerHealth = Math.max(this.playerHealth - 10, 0);
         this.updateHealthUI();
         this.animateReserveSwap();
     }
@@ -372,7 +396,7 @@ export default class BattleScene extends Phaser.Scene {
         // BÀI ĐỊCH - SIZE NHỎ (0.55) NẰM TRONG KHU VỰC ENEMY ZONE
         const enemyStartX = width / 2 - 180;
         const enemySpacing = 90;
-        const enemyY = this.enemyZoneH * 0.55;
+        const enemyY = this.enemyZoneH * 0.35;
         this.enemyReserveCards = enemyDeck.map((data, i) => {
             let c = new Card(this, enemyStartX + i * enemySpacing, enemyY, data, false);
             c.setScale(0.55);
@@ -422,6 +446,7 @@ export default class BattleScene extends Phaser.Scene {
                             this.tweens.add({
                                 targets: newDual, x: width / 2, y: enemyCoreY, duration: 500,
                                 onComplete: () => {
+                                    newDual.setScale(0.75);
                                     this.enemyCoreCard = newDual;
                                     this.enemyReady();
                                     this.refreshCombatPreview();
@@ -441,6 +466,7 @@ export default class BattleScene extends Phaser.Scene {
         this.tweens.add({
             targets: chosenCard, x: width / 2, y: enemyCoreY, duration: 800,
             onComplete: () => {
+                chosenCard.setScale(0.75);
                 this.enemyCoreCard = chosenCard;
                 this.enemyReady();
                 this.refreshCombatPreview();
@@ -451,6 +477,13 @@ export default class BattleScene extends Phaser.Scene {
     enemyReady() {
         this.fightBtn.setInteractive();
         this.fightIcon.setAlpha(1);
+        if (this.enemyReadyText) {
+            this.enemyReadyText.setVisible(true);
+            if (this.enemyReadyTimer) this.enemyReadyTimer.remove();
+            this.enemyReadyTimer = this.time.delayedCall(2000, () => {
+                this.enemyReadyText?.setVisible(false);
+            });
+        }
     }
 
     // Các hàm Drag, Drop, Helper (Giữ y hệt bản tôi cung cấp trước đó)
@@ -712,23 +745,30 @@ export default class BattleScene extends Phaser.Scene {
     // QUYẾT ĐẤU (EXECUTE FIGHT) & TÀN CUỘC
     // ==========================================
 
-    applyRoundOutcome(result) {
+    getDamageForVictory(cardData) {
+        if (!cardData) return 25;
+        if (cardData.type === 'Single') {
+            return cardData.level === 2 ? 15 : 10;
+        }
+        if (cardData.type === 'Dual') {
+            return cardData.level === 2 ? 45 : 25;
+        }
+        return 25;
+    }
+
+    applyRoundOutcome(result, winnerCardData = null, loserCardData = null) {
         if (result === 'THẮNG') {
-            this.playerHealth = Phaser.Math.Clamp(this.playerHealth + 1, 0, MAX_HEALTH);
-            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - 1, 0, MAX_HEALTH);
-            
-            // Hoạt ảnh Nhân vật nhận dmg
+            const damage = this.getDamageForVictory(winnerCardData ?? this.playerCoreCard?.cardData);
+            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - damage, 0, START_HEALTH);
             this.tweens.add({ targets: this.enemySprite, x: this.enemySprite.x + 10, duration: 50, yoyo: true, repeat: 3 });
         } else if (result === 'THUA') {
-            this.playerHealth = Phaser.Math.Clamp(this.playerHealth - 1, 0, MAX_HEALTH);
-            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth + 1, 0, MAX_HEALTH);
-
-            // Hoạt ảnh Nhân vật nhận dmg
+            const damage = this.getDamageForVictory(winnerCardData ?? this.enemyCoreCard?.cardData);
+            this.playerHealth = Phaser.Math.Clamp(this.playerHealth - damage, 0, START_HEALTH);
             this.tweens.add({ targets: this.playerSprite, x: this.playerSprite.x - 10, duration: 50, yoyo: true, repeat: 3 });
         } else if (result === 'HÒA') {
-            this.playerHealth = Phaser.Math.Clamp(this.playerHealth - 1, 0, MAX_HEALTH);
-            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - 1, 0, MAX_HEALTH);
-            
+            const tieDamage = 10;
+            this.playerHealth = Phaser.Math.Clamp(this.playerHealth - tieDamage, 0, START_HEALTH);
+            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - tieDamage, 0, START_HEALTH);
             this.tweens.add({ targets: this.enemySprite, x: this.enemySprite.x + 10, duration: 50, yoyo: true, repeat: 3 });
             this.tweens.add({ targets: this.playerSprite, x: this.playerSprite.x - 10, duration: 50, yoyo: true, repeat: 3 });
         }
@@ -791,7 +831,8 @@ export default class BattleScene extends Phaser.Scene {
         clashText.setAlpha(1);
 
         if (finalResult === 'THẮNG' || finalResult === 'THUA') {
-            this.applyRoundOutcome(finalResult);
+            const winnerCardData = finalResult === 'THẮNG' ? playerCard.cardData : enemyCard.cardData;
+            this.applyRoundOutcome(finalResult, winnerCardData);
             playSfx(this, finalResult === 'THẮNG' ? 'sfx_win' : 'sfx_lose');
         }
 
@@ -801,16 +842,21 @@ export default class BattleScene extends Phaser.Scene {
                 clashText.setText('HÒA!\nTÀN CUỘC...');
                 this.reserveWarSpeedMult = 2.85;
 
-                this.resolveReserveWar().then((final) => {
+                this.resolveReserveWar().then((resultObj) => {
                     this.reserveWarSpeedMult = 1;
-                    this.applyRoundOutcome(final);
-                    clashText.setText(`FINAL: ${final}!`);
+                    this.applyRoundOutcome(resultObj.result, resultObj.winnerCardData);
+                    clashText.setText(`FINAL: ${resultObj.result}!`);
 
-                    if (final === 'THẮNG') playSfx(this, 'sfx_win');
-                    if (final === 'THUA') playSfx(this, 'sfx_lose');
+                    if (resultObj.result === 'THẮNG') playSfx(this, 'sfx_win');
+                    if (resultObj.result === 'THUA') playSfx(this, 'sfx_lose');
 
                     this.time.delayedCall(1600, () => {
-                        clashText.destroy(); this.input.enabled = true; this.matchRound++;
+                        clashText.destroy(); this.input.enabled = true;
+                        if (this.playerHealth <= 0 || this.enemyHealth <= 0) {
+                            this.finishMatch();
+                            return;
+                        }
+                        this.matchRound++;
                         if (this.matchRound > this.maxRounds) { this.finishMatch(); } else { this.startStage(); }
                     });
                 });
@@ -819,7 +865,12 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         this.time.delayedCall(2000, () => {
-            waitScreen.destroy(); clashText.destroy(); this.input.enabled = true; this.matchRound++;
+            waitScreen.destroy(); clashText.destroy(); this.input.enabled = true;
+            if (this.playerHealth <= 0 || this.enemyHealth <= 0) {
+                this.finishMatch();
+                return;
+            }
+            this.matchRound++;
             if (this.matchRound > this.maxRounds) { this.finishMatch(); } else { this.startStage(); }
         });
     }
@@ -892,9 +943,9 @@ export default class BattleScene extends Phaser.Scene {
         while (true) {
             pRow = this.sortLeftToRight(pRow); eRow = this.sortLeftToRight(eRow);
 
-            if (pRow.length === 0 && eRow.length === 0) { this.syncPlayerSlotsAfterWar(pRow); return 'HÒA'; }
-            if (pRow.length === 0) { this.syncPlayerSlotsAfterWar(pRow); return 'THUA'; }
-            if (eRow.length === 0) { this.syncPlayerSlotsAfterWar(pRow); return 'THẮNG'; }
+            if (pRow.length === 0 && eRow.length === 0) { this.syncPlayerSlotsAfterWar(pRow); return { result: 'HÒA' }; }
+            if (pRow.length === 0) { this.syncPlayerSlotsAfterWar(pRow); return { result: 'THUA', winnerCardData: null }; }
+            if (eRow.length === 0) { this.syncPlayerSlotsAfterWar(pRow); return { result: 'THẮNG', winnerCardData: null }; }
 
             const pCard = pRow[0]; const eCard = eRow[0];
             const spd = this.reserveWarSpeedMult || 2;
@@ -937,7 +988,7 @@ export default class BattleScene extends Phaser.Scene {
 
                 await this.wait(300 / spd);
                 this.syncPlayerSlotsAfterWar(pRow);
-                return result;
+                return { result, winnerCardData: winnerCard.cardData };
             } else {
                 this.cameras.main.shake(150, 0.012);
                 playSfx(this, 'sfx_crack', { volume: 0.6 });
