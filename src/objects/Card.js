@@ -38,15 +38,15 @@ export default class Card extends Phaser.GameObjects.Container {
         this.text.setStroke('#000000', 4);
 
         // 5. Icons (+ và X) -> Đặt Depth cao để nổi lên trên
-        this.iconPlus = scene.add.text(35, -55, '+', { fontSize: '60px', color: '#00ff00', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false).setDepth(50);
+        this.iconPlus = scene.add.text(35, -55, '+', { fontSize: '60px', color: '#00ff00', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false).setDepth(500);
         this.iconPlus.setStroke('#000000', 6);
-        this.iconCross = scene.add.text(35, -55, 'X', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false).setDepth(50);
+        this.iconCross = scene.add.text(35, -55, 'X', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false).setDepth(500);
         this.iconCross.setStroke('#000000', 6);
 
         // 6. Tooltip thành phần nguyên tố -> FIX: Đặt Depth 999 để luôn đè lên mọi thứ
         this.tipBg = scene.add.rectangle(0, -118, 132, 52, 0x1a1a1a, 0.95).setStrokeStyle(2, 0xffd700).setVisible(false).setDepth(999);
-        this.elementIcon1 = scene.add.image(-20, -118, null).setVisible(false).setDepth(1000);
-        this.elementIcon2 = scene.add.image(20, -118, null).setVisible(false).setDepth(1000);
+        this.elementIcon1 = scene.add.image(-20, -118, null).setVisible(false).setDepth(9999);
+        this.elementIcon2 = scene.add.image(20, -118, null).setVisible(false).setDepth(9999);
         this.plusText = scene.add.text(0, -118, '+', { fontSize: '18px', color: '#ffeeaa', fontStyle: 'bold', align: 'center' }).setOrigin(0.5).setVisible(false).setDepth(1000);
         this.plusText.setStroke('#000000', 3);
 
