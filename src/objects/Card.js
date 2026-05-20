@@ -43,11 +43,11 @@ export default class Card extends Phaser.GameObjects.Container {
         this.iconCross = scene.add.text(35, -55, 'X', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false).setDepth(500);
         this.iconCross.setStroke('#000000', 6);
 
-        // 6. Tooltip thành phần nguyên tố -> Đặt depth cao để luôn đè lên mọi thứ
-        this.tipBg = scene.add.rectangle(0, -118, 132, 52, 0x1a1a1a, 0.95).setStrokeStyle(2, 0xffd700).setVisible(false).setDepth(1200);
-        this.elementIcon1 = scene.add.image(-20, -118, null).setVisible(false).setDepth(1201);
-        this.elementIcon2 = scene.add.image(20, -118, null).setVisible(false).setDepth(1201);
-        this.plusText = scene.add.text(0, -118, '+', { fontSize: '18px', color: '#ffeeaa', fontStyle: 'bold', align: 'center' }).setOrigin(0.5).setVisible(false).setDepth(1202);
+        // 6. Tooltip thành phần nguyên tố -> Đặt depth rất cao để luôn đè lên mọi thứ
+        this.tipBg = scene.add.rectangle(0, -118, 132, 52, 0x1a1a1a, 0.95).setStrokeStyle(2, 0xffd700).setVisible(false).setDepth(2000);
+        this.elementIcon1 = scene.add.image(-20, -118, null).setVisible(false).setDepth(2001);
+        this.elementIcon2 = scene.add.image(20, -118, null).setVisible(false).setDepth(2001);
+        this.plusText = scene.add.text(0, -118, '+', { fontSize: '18px', color: '#ffeeaa', fontStyle: 'bold', align: 'center' }).setOrigin(0.5).setVisible(false).setDepth(2002);
         this.plusText.setStroke('#000000', 3);
 
         // 7. Crack overlay
@@ -69,8 +69,15 @@ export default class Card extends Phaser.GameObjects.Container {
             this.setupPlayerInteractions();
         } else {
             this.setInteractive({ useHandCursor: true });
-            this.on('pointerover', () => this.showCompositionTooltipIfAny());
-            this.on('pointerout', () => this.hideCompositionTooltip());
+            this.on('pointerover', () => {
+                this.originalDepth = this.depth;
+                this.setDepth(2000);
+                this.showCompositionTooltipIfAny();
+            });
+            this.on('pointerout', () => {
+                this.setDepth(this.originalDepth);
+                this.hideCompositionTooltip();
+            });
         }
     }
 
@@ -108,8 +115,8 @@ export default class Card extends Phaser.GameObjects.Container {
         if (elements.length < 2) { this.hideCompositionTooltip(); return; }
         
         const tooltipWidth = this.isPlayer ? 132 : 170;
-        const tooltipHeight = this.isPlayer ? 52 : 70;
-        const tooltipY = this.isPlayer ? -118 : -128;
+        const tooltipHeight = this.isPlayer ? 52 : 72;
+        const tooltipY = this.isPlayer ? -118 : -148;
         const iconSize = this.isPlayer ? 25 : 32;
         const plusSize = this.isPlayer ? '18px' : '22px';
 
