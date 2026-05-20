@@ -15,7 +15,7 @@ const config = {
         mode: Phaser.Scale.FIT, // Vừa khít màn hình, giữ đúng tỉ lệ 9:16
         autoCenter: Phaser.Scale.CENTER_BOTH, // Căn giữa màn hình
     },
-    scene: [BattleScene] // All scenes registered; BattleScene launches TutorialScene on first play
+    scene: [BattleScene] 
 };
 
 const game = new Phaser.Game(config);

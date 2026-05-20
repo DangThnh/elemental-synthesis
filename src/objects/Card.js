@@ -42,6 +42,9 @@ export default class Card extends Phaser.GameObjects.Container {
         this.iconPlus.setStroke('#000000', 6);
         this.iconCross = scene.add.text(35, -55, 'X', { fontSize: '60px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5).setVisible(false).setDepth(500);
         this.iconCross.setStroke('#000000', 6);
+        
+         this.lockIcon = scene.add.text(0, 0, '❌', { fontSize: '50px' }).setOrigin(0.5).setVisible(false).setDepth(60);
+        this.isLocked = false; // Trạng thái khóa
 
         // 6. Tooltip thành phần nguyên tố -> Đặt depth rất cao để luôn đè lên mọi thứ
         this.tipBg = scene.add.rectangle(0, -118, 132, 52, 0x1a1a1a, 0.95).setStrokeStyle(2, 0xffd700).setVisible(false).setDepth(2000);
@@ -54,7 +57,7 @@ export default class Card extends Phaser.GameObjects.Container {
         this.crackImage = scene.add.image(0, 0, 'crack_overlay').setVisible(false).setDepth(5);
         this.crackImage.setDisplaySize(100, 140); 
 
-        this.add([this.bg, this.elementIcon, this.titleText, this.text, this.iconPlus, this.iconCross, this.tipBg, this.elementIcon1, this.elementIcon2, this.plusText, this.crackImage]);
+        this.add([this.bg, this.elementIcon, this.titleText, this.text, this.iconPlus, this.iconCross, this.lockIcon, this.tipBg, this.elementIcon1, this.elementIcon2, this.plusText, this.crackImage]);
         scene.add.existing(this);
 
         this.crackActive = false;
@@ -160,11 +163,27 @@ export default class Card extends Phaser.GameObjects.Container {
         this.text.setText(`Lv${this.cardData.level}`); this.text.setColor('#ffffff'); this.text.setStroke('#000000', 4);
     }
 
+    setLock(locked) {
+        this.isLocked = locked;
+        this.lockIcon.setVisible(locked);
+        if (locked) {
+            this.bg.setTint(0x555555); // Làm tối lá bài
+            // Hiệu ứng chớp tắt báo hiệu bị khóa
+            this.scene.tweens.add({ targets: this.lockIcon, alpha: 0.5, yoyo: true, repeat: -1, duration: 400 });
+        } else {
+            this.bg.clearTint();
+            this.scene.tweens.killTweensOf(this.lockIcon);
+            this.lockIcon.setAlpha(1);
+        }
+    }
+
     setupPlayerInteractions() {
         this.on('pointerover', () => { this.drawBackground(true); this.showCompositionTooltipIfAny(); });
         this.on('pointerout', () => { this.drawBackground(false); this.hideCompositionTooltip(); });
 
         this.on('dragstart', () => {
+             if (this.isLocked) return; // NẾU BỊ KHÓA -> CẤM KÉO
+
             this.clearCrackPreview(); 
             this.hideCompositionTooltip();
             
@@ -194,6 +213,7 @@ export default class Card extends Phaser.GameObjects.Container {
     snapBack() {
         this.scene.tweens.add({ targets: this, x: this.originalPos.x, y: this.originalPos.y, duration: 200, ease: 'Back.easeOut' });
     }
+    
 
     checkHoverTargets() {
         this.iconPlus.setVisible(false); this.iconCross.setVisible(false);

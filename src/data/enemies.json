@@ -1,22 +1,52 @@
 {
   "enemies": [
     {
-      "id": "enemy_forest_slime",
-      "name": "Nấm Nhầy Tha Hóa",
+      "id": "ch1_1_nam_nhay",
+      "name": "Tinh Linh Nấm Tha Hóa",
+      "hp": 50,
+      "color": "0x2ecc71",
+      "skills": []
+    },
+    {
+      "id": "ch1_2_ma_thao",
+      "name": "Ma Thảo Hoang Dại",
       "hp": 80,
-      "color": "0x2ecc71"
+      "color": "0x1abc9c",
+      "skills": [
+        {
+          "name": "Dây Leo Trói Buộc",
+          "trigger": "onBattleStart",
+          "action": "lock_random_card"
+        }
+      ]
     },
     {
-      "id": "enemy_fire_drake",
-      "name": "Dực Long Lửa",
+      "id": "ch1_boss_co_moc",
+      "name": "Cổ Mộc Tà Ác",
       "hp": 120,
-      "color": "0xe74c3c"
+      "color": "0x27ae60",
+      "skills": [
+        {
+          "name": "Giáp Mộc Che Chở",
+          "trigger": "onRoundStart",
+          "condition": { "rounds": [3, 5] },
+          "action": "gain_wood_shield"
+        }
+      ]
     },
     {
-      "id": "boss_magnus",
-      "name": "Bách Giáp Vương Magnus",
-      "hp": 150,
-      "color": "0x95a5a6"
+      "id": "ch2_1_ma_thach",
+      "name": "Ma Thạch Nham",
+      "hp": 90,
+      "color": "0xd35400",
+      "skills": [
+        {
+          "name": "Kháng Hỏa",
+          "trigger": "onDamageTake",
+          "condition": { "attack_element": "Fire" },
+          "action": "reduce_damage_50"
+        }
+      ]
     }
   ]
 }

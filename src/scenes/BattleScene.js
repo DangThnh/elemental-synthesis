@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import Card from '../objects/Card';
 import PoolSystem from '../systems/PoolSystem';
 import AISystem from '../systems/AISystem';
+import BossSkillEngine from '../systems/BossSkillEngine';
 import DataManager from '../managers/DataManager';
 
 import { checkMerge, compareCards, getWeakSideForPreview } from '../utils/GameLogic'; // Bỏ drawFiveCards
@@ -69,6 +70,7 @@ export default class BattleScene extends Phaser.Scene {
         const currentStageData = DataManager.getStageData(this.currentStage);
         const enemyData = currentStageData ? currentStageData.enemy : { name: "UNKNOWN", hp: 100, color: 0xe74c3c };
         this.currentStageData = currentStageData;
+        this.currentEnemyData = currentStageData ? currentStageData.enemy : null;
         this.enemyMaxHealth = enemyData.hp;
         this.enemyHealth = enemyData.hp;
 
@@ -122,7 +124,7 @@ export default class BattleScene extends Phaser.Scene {
 
         enemyData = enemyData || { name: 'UNKNOWN', hp: 100, color: 0xe74c3c };
         this.enemySprite = this.add.rectangle(width - 120, this.arenaTopY + 150, 100, 130, enemyData.color).setStrokeStyle(4, 0x000);
-        this.enemyNameText = this.add.text(width - 120, this.arenaTopY + 70, enemyData.name, { fontSize: '18px', color: '#fff', fontStyle: 'bold', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
+        this.enemyNameText = this.add.text(width - 120, this.arenaTopY + 150, enemyData.name, { fontSize: '18px', color: '#fff', fontStyle: 'bold', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
        
        // this.add.text(width - 120, this.arenaTopY + 70, 'BOSS', { fontSize: '18px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
 
@@ -148,7 +150,7 @@ export default class BattleScene extends Phaser.Scene {
 
         this.fightCenter = { x: width / 2, y: this.arenaTopY + (this.arenaZoneH / 2) };
 
-        this.roundText = this.add.text(width / 2, 30, `CHAPTER ${currentStageData?.chapter || 1} - VÒNG ${this.matchRound}/${this.maxRounds}`, { fontSize: '26px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+        this.roundText = this.add.text(width / 2, 30, `CHAPTER ${this.currentStageData?.chapter || 1} - VÒNG ${this.matchRound}/${this.maxRounds}`, { fontSize: '26px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
         this.createHealthUI();
 
         this.slotFrameG = this.add.graphics().setDepth(0);
@@ -335,8 +337,14 @@ export default class BattleScene extends Phaser.Scene {
         this.fightBtn.disableInteractive();
         this.fightIcon.setAlpha(0.5);
         this.matchOver = false;
-        this.currentStage = Math.min(this.matchRound, 3);
-        this.roundText?.setText(`VÒNG ${this.matchRound}/${this.maxRounds}`);
+        const stageData = DataManager.getStageData(this.currentStage);
+        if (stageData) {
+            this.currentStageData = stageData;
+            this.roundText?.setText(`CHAPTER ${stageData.chapter} - VÒNG ${this.matchRound}/${this.maxRounds}`);
+            this.currentEnemyData = stageData.enemy;
+        } else {
+            this.roundText?.setText(`VÒNG ${this.matchRound}/${this.maxRounds}`);
+        }
         this.updateHealthUI();
 
         [...this.getPlayerReserveList(), ...this.enemyReserveCards, this.playerCoreCard, this.enemyCoreCard].forEach((c) => c && c.destroy());
@@ -367,13 +375,24 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         this.layoutPlayerReserveSlots(0);
+
+        this.time.delayedCall(100, () => {
+            BossSkillEngine.executeTrigger(this, this.currentEnemyData, 'onBattleStart', { matchRound: this.matchRound });
+        });
+
         this.time.delayedCall(400, () => this.refreshCombatPreview());
-        this.time.delayedCall(1000, () => this.playAITurn());
+        this.time.delayedCall(600, () => {
+            BossSkillEngine.executeTrigger(this, this.currentEnemyData, 'onRoundStart', this.matchRound);
+        });
+        this.time.delayedCall(1500, () => this.playAITurn());   
+
     }
 
     // TÁCH LOGIC: GỌI AISYSTEM TRONG PLAY AI TURN
    playAITurn() {
         const { width } = this.scale;
+
+        BossSkillEngine.executeTrigger(this, this.currentEnemyData, 'onRoundStart', { matchRound: this.matchRound });
 
         // 1. GỌI AI SYSTEM ĐỂ NHẬN LỆNH (Tách biệt hoàn toàn logic suy nghĩ)
         const decision = AISystem.decideMove(this.enemyReserveCards, this.matchRound);
@@ -657,7 +676,7 @@ export default class BattleScene extends Phaser.Scene {
     applyRoundOutcome(result, winnerCardData = null, loserCardData = null) {
         if (result === 'THẮNG') {
             const damage = this.getDamageForVictory(winnerCardData ?? this.playerCoreCard?.cardData);
-            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - damage, 0, START_HEALTH);
+            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - damage, 0, this.enemyMaxHealth || START_HEALTH);
             this.tweens.add({ targets: this.enemySprite, x: this.enemySprite.x + 10, duration: 50, yoyo: true, repeat: 3 });
         } else if (result === 'THUA') {
             const damage = this.getDamageForVictory(winnerCardData ?? this.enemyCoreCard?.cardData);
@@ -666,14 +685,19 @@ export default class BattleScene extends Phaser.Scene {
         } else if (result === 'HÒA') {
             const tieDamage = 10;
             this.playerHealth = Phaser.Math.Clamp(this.playerHealth - tieDamage, 0, START_HEALTH);
-            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - tieDamage, 0, START_HEALTH);
+            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - tieDamage, 0, this.enemyMaxHealth || START_HEALTH);
             this.tweens.add({ targets: this.enemySprite, x: this.enemySprite.x + 10, duration: 50, yoyo: true, repeat: 3 });
             this.tweens.add({ targets: this.playerSprite, x: this.playerSprite.x - 10, duration: 50, yoyo: true, repeat: 3 });
         }
         this.updateHealthUI();
     }
 
+    clearAllLocks() {
+        this.getPlayerReserveList().forEach(card => card.setLock(false));
+    }
+
     async executeFight() {
+        
         this.fightBtn.disableInteractive(); this.swapBtn?.disableInteractive(); this.fightIcon.setAlpha(0.5); this.input.enabled = false;
         playSfx(this, 'sfx_fight', { volume: 0.55 });
 
@@ -725,6 +749,7 @@ export default class BattleScene extends Phaser.Scene {
                     this.time.delayedCall(1600, () => {
                         clashText.destroy(); this.input.enabled = true;
                         if (this.playerHealth <= 0 || this.enemyHealth <= 0) { this.finishMatch(); return; }
+                        this.clearAllLocks();
                         this.matchRound++; if (this.matchRound > this.maxRounds) { this.finishMatch(); } else { this.startStage(); }
                     });
                 });
@@ -735,6 +760,7 @@ export default class BattleScene extends Phaser.Scene {
         this.time.delayedCall(2000, () => {
             waitScreen.destroy(); clashText.destroy(); this.input.enabled = true;
             if (this.playerHealth <= 0 || this.enemyHealth <= 0) { this.finishMatch(); return; }
+            this.clearAllLocks();
             this.matchRound++; if (this.matchRound > this.maxRounds) { this.finishMatch(); } else { this.startStage(); }
         });
     }
@@ -855,8 +881,11 @@ export default class BattleScene extends Phaser.Scene {
         const message = finalWinner === 'THẮNG' ? 'CHIẾN THẮNG!' : finalWinner === 'THUA' ? 'THẤT BẠI!' : 'HÒA MẠNG!';
         const messageText = this.add.text(width / 2, height * 0.35, message, { fontSize: '48px', color: '#fff', fontStyle: 'bold', align: 'center' }).setOrigin(0.5).setDepth(9999);
         const buttonBg = this.add.rectangle(width / 2, height * 0.55, 220, 60, 0xffa500).setDepth(9999).setInteractive({ useHandCursor: true });
-        const buttonText = this.add.text(width / 2, height * 0.55, 'CHƠI LẠI', { fontSize: '24px', color: '#000', fontStyle: 'bold' }).setOrigin(0.5).setDepth(10000);
-        buttonBg.on('pointerdown', () => { buttonBg.destroy(); buttonText.destroy(); messageText.destroy(); overlay.destroy(); this.resetMatch(); });
+        const nextStageData = finalWinner === 'THẮNG' ? DataManager.getStageData(this.currentStage + 1) : null;
+        const buttonLabel = nextStageData ? `CHƠI MÀN ${nextStageData.stageId}` : 'CHƠI LẠI';
+        const advanceStage = !!nextStageData;
+        const buttonText = this.add.text(width / 2, height * 0.55, buttonLabel, { fontSize: '24px', color: '#000', fontStyle: 'bold' }).setOrigin(0.5).setDepth(10000);
+        buttonBg.on('pointerdown', () => { buttonBg.destroy(); buttonText.destroy(); messageText.destroy(); overlay.destroy(); this.resetMatch(advanceStage); });
         this.matchResultContainer = [overlay, messageText, buttonBg, buttonText];
     }
 
@@ -867,26 +896,32 @@ export default class BattleScene extends Phaser.Scene {
     //     this.updateHealthUI(); this.startStage();
     // }
 
-    resetMatch() {
-        this.matchOver = false; 
-        this.matchRound = 1; 
-        
-        // Load lại data của màn mới
+    resetMatch(advanceStage = false) {
+        if (advanceStage) {
+            const nextStageData = DataManager.getStageData(this.currentStage + 1);
+            if (nextStageData) this.currentStage += 1;
+        }
+
+        this.matchOver = false;
+        this.matchRound = 1;
+
         const newData = DataManager.getStageData(this.currentStage);
         if (newData) {
+            this.currentStageData = newData;
+            this.currentEnemyData = newData.enemy;
             this.enemyMaxHealth = newData.enemy.hp;
             this.enemyHealth = newData.enemy.hp;
             this.enemySprite.setFillStyle(newData.enemy.color);
             this.enemyNameText.setText(newData.enemy.name);
             this.roundText.setText(`CHAPTER ${newData.chapter} - VÒNG 1/${this.maxRounds}`);
         } else {
-            // Hết Game (Hoặc chưa code JSON màn tiếp theo)
-            this.enemyHealth = 100; 
+            this.enemyHealth = 100;
+            this.enemyMaxHealth = 100;
+            this.roundText.setText(`VÒNG 1/${this.maxRounds}`);
         }
 
         this.playerHealth = 100; // Hồi đầy máu Player
-        
-        this.updateHealthUI(); 
+        this.updateHealthUI();
         this.startStage();
     }
 
