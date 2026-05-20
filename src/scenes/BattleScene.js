@@ -66,15 +66,15 @@ export default class BattleScene extends Phaser.Scene {
 
     create(data) {
         const { width, height } = this.scale;
+        const currentStageData = DataManager.getStageData(this.currentStage);
+        const enemyData = currentStageData ? currentStageData.enemy : { name: "UNKNOWN", hp: 100, color: 0xe74c3c };
+        this.currentStageData = currentStageData;
+        this.enemyMaxHealth = enemyData.hp;
+        this.enemyHealth = enemyData.hp;
+
         if (data?.audioUnlocked) this.audioUnlocked = true;
-        if (this.audioUnlocked) { this.initializeGame(width, height); return; }
+        if (this.audioUnlocked) { this.initializeGame(width, height, enemyData); return; }
         this.createStartScreen();
-
-         const currentStageData = DataManager.getStageData(this.currentStage);
-         const enemyData = currentStageData ? currentStageData.enemy : { name: "UNKNOWN", hp: 100, color: 0xe74c3c };
-
-         this.enemyMaxHealth = enemyData.hp;
-         this.enemyHealth = enemyData.hp;
     }
 
     createStartScreen() {
@@ -93,7 +93,7 @@ export default class BattleScene extends Phaser.Scene {
         this.add.text(width / 2, height * 0.64, 'HƯỚNG DẪN', { fontSize: '30px', color: '#aaffaa', fontStyle: 'bold' }).setOrigin(0.5);
 
         const startBtn = this.add.rectangle(width / 2, height * 0.78, 320, 70, 0xffa500).setStrokeStyle(3, 0xffdd44).setInteractive({ useHandCursor: true })
-            .on('pointerdown', () => { this.unlockAudio(); this.scene.restart(); });
+            .on('pointerdown', () => { this.unlockAudio(); this.scene.restart({ audioUnlocked: true }); });
         this.add.text(width / 2, height * 0.78, 'BẮT ĐẦU', { fontSize: '30px', color: '#000', fontStyle: 'bold' }).setOrigin(0.5);
     }
 
@@ -109,7 +109,7 @@ export default class BattleScene extends Phaser.Scene {
         }
     }
 
-    initializeGame(width, height) {
+    initializeGame(width, height, enemyData) {
         this.enemyZoneH = height * 0.25;
         this.arenaZoneH = height * 0.45;
         this.arenaTopY = this.enemyZoneH;
@@ -120,6 +120,7 @@ export default class BattleScene extends Phaser.Scene {
         this.add.line(0, 0, 0, this.arenaTopY, width, this.arenaTopY, 0xffd700).setOrigin(0).setLineWidth(4);
         this.add.line(0, 0, 0, this.arenaBottomY, width, this.arenaBottomY, 0xffd700).setOrigin(0).setLineWidth(4);
 
+        enemyData = enemyData || { name: 'UNKNOWN', hp: 100, color: 0xe74c3c };
         this.enemySprite = this.add.rectangle(width - 120, this.arenaTopY + 150, 100, 130, enemyData.color).setStrokeStyle(4, 0x000);
         this.enemyNameText = this.add.text(width - 120, this.arenaTopY + 70, enemyData.name, { fontSize: '18px', color: '#fff', fontStyle: 'bold', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
        
