@@ -163,15 +163,26 @@ export default class Card extends Phaser.GameObjects.Container {
         this.text.setText(`Lv${this.cardData.level}`); this.text.setColor('#ffffff'); this.text.setStroke('#000000', 4);
     }
 
-    setLock(locked) {
+   setLock(locked) {
         this.isLocked = locked;
         this.lockIcon.setVisible(locked);
+        
         if (locked) {
-            this.bg.setTint(0x555555); // Làm tối lá bài
+            // FIX: Graphics không dùng được setTint, dùng setAlpha để làm mờ nền
+            this.bg.setAlpha(0.4); 
+            
             // Hiệu ứng chớp tắt báo hiệu bị khóa
-            this.scene.tweens.add({ targets: this.lockIcon, alpha: 0.5, yoyo: true, repeat: -1, duration: 400 });
+            this.scene.tweens.add({ 
+                targets: this.lockIcon, 
+                alpha: 0.3, 
+                yoyo: true, 
+                repeat: -1, 
+                duration: 400 
+            });
         } else {
-            this.bg.clearTint();
+            // FIX: Trả lại độ sáng bình thường thay vì clearTint
+            this.bg.setAlpha(1); 
+            
             this.scene.tweens.killTweensOf(this.lockIcon);
             this.lockIcon.setAlpha(1);
         }
