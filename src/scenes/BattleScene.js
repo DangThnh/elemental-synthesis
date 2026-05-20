@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import Card from '../objects/Card';
+import PoolSystem from '../systems/PoolSystem';
+import AISystem from '../systems/AISystem';
+
 import { checkMerge, compareCards, getWeakSideForPreview } from '../utils/GameLogic'; // Bỏ drawFiveCards
 import { createHelpReferencePanel, discoverDualPairFromFight } from '../ui/HelpReferencePanel';
 import { preloadBattleAudio, playSfx } from '../audio/GameAudio';
@@ -18,6 +21,7 @@ const MAX_HEALTH = 100;
 export default class BattleScene extends Phaser.Scene {
     constructor() {
         super('BattleScene');
+        this.poolSystem = new PoolSystem();
         this.logic = { checkMerge };
         this.currentStage = 1;
         this.matchRound = 1;
