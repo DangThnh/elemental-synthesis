@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import Card from '../objects/Card';
 import PoolSystem from '../systems/PoolSystem';
 import AISystem from '../systems/AISystem';
+import DataManager from '../managers/DataManager';
 
 import { checkMerge, compareCards, getWeakSideForPreview } from '../utils/GameLogic'; // Bỏ drawFiveCards
 import { createHelpReferencePanel, discoverDualPairFromFight } from '../ui/HelpReferencePanel';
@@ -26,8 +27,10 @@ export default class BattleScene extends Phaser.Scene {
         this.currentStage = 1;
         this.matchRound = 1;
         this.maxRounds = MAX_MATCH_ROUNDS;
-        this.playerHealth = START_HEALTH;
-        this.enemyHealth = START_HEALTH;
+        this.playerHealth = 100;
+        //this.enemyHealth = START_HEALTH;
+         this.enemyHealth = 100;
+        this.enemyMaxHealth = 100;
         this.reserveWarSpeedMult = 1;
         
         this.slotFrameG = null;
@@ -66,6 +69,12 @@ export default class BattleScene extends Phaser.Scene {
         if (data?.audioUnlocked) this.audioUnlocked = true;
         if (this.audioUnlocked) { this.initializeGame(width, height); return; }
         this.createStartScreen();
+
+         const currentStageData = DataManager.getStageData(this.currentStage);
+         const enemyData = currentStageData ? currentStageData.enemy : { name: "UNKNOWN", hp: 100, color: 0xe74c3c };
+
+         this.enemyMaxHealth = enemyData.hp;
+         this.enemyHealth = enemyData.hp;
     }
 
     createStartScreen() {
@@ -111,8 +120,10 @@ export default class BattleScene extends Phaser.Scene {
         this.add.line(0, 0, 0, this.arenaTopY, width, this.arenaTopY, 0xffd700).setOrigin(0).setLineWidth(4);
         this.add.line(0, 0, 0, this.arenaBottomY, width, this.arenaBottomY, 0xffd700).setOrigin(0).setLineWidth(4);
 
-        this.enemySprite = this.add.rectangle(width - 120, this.arenaTopY + 150, 100, 130, 0xe74c3c).setStrokeStyle(4, 0x000);
-        this.add.text(width - 120, this.arenaTopY + 70, 'BOSS', { fontSize: '18px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+        this.enemySprite = this.add.rectangle(width - 120, this.arenaTopY + 150, 100, 130, enemyData.color).setStrokeStyle(4, 0x000);
+        this.enemyNameText = this.add.text(width - 120, this.arenaTopY + 70, enemyData.name, { fontSize: '18px', color: '#fff', fontStyle: 'bold', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
+       
+       // this.add.text(width - 120, this.arenaTopY + 70, 'BOSS', { fontSize: '18px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
 
         this.playerSprite = this.add.rectangle(140, this.arenaBottomY - 140, 140, 180, 0x3498db).setStrokeStyle(4, 0x000);
         this.add.text(140, this.arenaBottomY - 250, 'PLAYER', { fontSize: '22px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
@@ -136,7 +147,7 @@ export default class BattleScene extends Phaser.Scene {
 
         this.fightCenter = { x: width / 2, y: this.arenaTopY + (this.arenaZoneH / 2) };
 
-        this.roundText = this.add.text(width / 2, 30, `VÒNG ${this.matchRound}/${this.maxRounds}`, { fontSize: '28px', color: '#fff' }).setOrigin(0.5);
+        this.roundText = this.add.text(width / 2, 30, `CHAPTER ${currentStageData?.chapter || 1} - VÒNG ${this.matchRound}/${this.maxRounds}`, { fontSize: '26px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
         this.createHealthUI();
 
         this.slotFrameG = this.add.graphics().setDepth(0);
@@ -229,14 +240,25 @@ export default class BattleScene extends Phaser.Scene {
         this.updateHealthUI();
     }
 
+    // updateHealthUI() {
+    //     const clampedPlayer = Phaser.Math.Clamp(this.playerHealth, 0, START_HEALTH);
+    //     const clampedEnemy = Phaser.Math.Clamp(this.enemyHealth, 0, START_HEALTH);
+    //     const maxBarWidth = this.playerHealthBarBg.width;
+
+    //     if (this.playerHealthBarFill) this.playerHealthBarFill.width = Math.max(0, maxBarWidth * (clampedPlayer / START_HEALTH));
+    //     if (this.enemyHealthBarFill) this.enemyHealthBarFill.width = Math.max(0, maxBarWidth * (clampedEnemy / START_HEALTH));
+
+    //     this.setSwapButtonState(this.playerHealth > 0 && !this.matchOver);
+    // }
+
     updateHealthUI() {
-        const clampedPlayer = Phaser.Math.Clamp(this.playerHealth, 0, START_HEALTH);
-        const clampedEnemy = Phaser.Math.Clamp(this.enemyHealth, 0, START_HEALTH);
-        const maxBarWidth = this.playerHealthBarBg.width;
-
-        if (this.playerHealthBarFill) this.playerHealthBarFill.width = Math.max(0, maxBarWidth * (clampedPlayer / START_HEALTH));
-        if (this.enemyHealthBarFill) this.enemyHealthBarFill.width = Math.max(0, maxBarWidth * (clampedEnemy / START_HEALTH));
-
+        const pctP = Math.max(0, this.playerHealth / 100);
+        
+        // FIX: Địch chia cho enemyMaxHealth lấy từ JSON
+        const pctE = Math.max(0, this.enemyHealth / this.enemyMaxHealth); 
+        
+        this.tweens.add({ targets: this.playerHealthBarFill, displayWidth: this.playerHealthBarBg.width * pctP, duration: 300 });
+        this.tweens.add({ targets: this.enemyHealthBarFill, displayWidth: this.enemyHealthBarBg.width * pctE, duration: 300 });
         this.setSwapButtonState(this.playerHealth > 0 && !this.matchOver);
     }
 
@@ -837,11 +859,34 @@ export default class BattleScene extends Phaser.Scene {
         this.matchResultContainer = [overlay, messageText, buttonBg, buttonText];
     }
 
+    // resetMatch() {
+    //     this.poolSystem.initializePool();
+    //     this.matchOver = false; this.matchRound = 1; this.currentStage = 1;
+    //     this.playerHealth = START_HEALTH; this.enemyHealth = START_HEALTH;
+    //     this.updateHealthUI(); this.startStage();
+    // }
+
     resetMatch() {
-        this.poolSystem.initializePool();
-        this.matchOver = false; this.matchRound = 1; this.currentStage = 1;
-        this.playerHealth = START_HEALTH; this.enemyHealth = START_HEALTH;
-        this.updateHealthUI(); this.startStage();
+        this.matchOver = false; 
+        this.matchRound = 1; 
+        
+        // Load lại data của màn mới
+        const newData = DataManager.getStageData(this.currentStage);
+        if (newData) {
+            this.enemyMaxHealth = newData.enemy.hp;
+            this.enemyHealth = newData.enemy.hp;
+            this.enemySprite.setFillStyle(newData.enemy.color);
+            this.enemyNameText.setText(newData.enemy.name);
+            this.roundText.setText(`CHAPTER ${newData.chapter} - VÒNG 1/${this.maxRounds}`);
+        } else {
+            // Hết Game (Hoặc chưa code JSON màn tiếp theo)
+            this.enemyHealth = 100; 
+        }
+
+        this.playerHealth = 100; // Hồi đầy máu Player
+        
+        this.updateHealthUI(); 
+        this.startStage();
     }
 
     finishMatch() {

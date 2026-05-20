@@ -1,0 +1,19 @@
+{
+  "stages": [
+    {
+      "stage_id": 1,
+      "chapter": 1,
+      "enemy_id": "enemy_forest_slime"
+    },
+    {
+      "stage_id": 2,
+      "chapter": 2,
+      "enemy_id": "enemy_fire_drake"
+    },
+    {
+      "stage_id": 3,
+      "chapter": 4,
+      "enemy_id": "boss_magnus"
+    }
+  ]
+}
