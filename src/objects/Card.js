@@ -206,6 +206,9 @@ export default class Card extends Phaser.GameObjects.Container {
         this.on('pointerout', () => { this.drawBackground(false); this.hideCompositionTooltip(); });
 
         this.on('dragstart', () => {
+            if (this.scene.isTutorialMode && this.cardData.name !== 'Water') {
+                return; // Cấm kéo lá khác lá Thủy
+            }
              if (this.isLocked) return; // NẾU BỊ KHÓA -> CẤM KÉO
 
             this.clearCrackPreview(); 
@@ -244,6 +247,13 @@ export default class Card extends Phaser.GameObjects.Container {
     
 
     checkHoverTargets() {
+        
+        if (this.scene.isTutorialMode) {
+            this.iconPlus.setVisible(false);
+            this.iconCross.setVisible(false);
+            return; 
+        }
+
          if (this.isLocked) return;
         this.iconPlus.setVisible(false); this.iconCross.setVisible(false);
         this.hoverTargets.forEach(target => target.drawBackground(false));

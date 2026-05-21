@@ -5,6 +5,7 @@ import AISystem from '../systems/AISystem';
 import BossSkillEngine from '../systems/BossSkillEngine';
 import DataManager from '../managers/DataManager';
 import ConditionSystem from '../systems/ConditionSystem';
+import TutorialSystem from '../systems/TutorialSystem';
 
 import { checkMerge, compareCards, getWeakSideForPreview } from '../utils/GameLogic'; // Bỏ drawFiveCards
 import { createHelpReferencePanel, discoverDualPairFromFight } from '../ui/HelpReferencePanel';
@@ -70,6 +71,8 @@ export default class BattleScene extends Phaser.Scene {
         this.matchResultContainer = null;
         this.woodShieldGraphic = null;
 
+        this.isTutorialMode = false; 
+
         // Reset lại điểm số mặc định
         this.playerHealth = START_HEALTH;
         this.enemyHealth = START_HEALTH;
@@ -90,6 +93,12 @@ export default class BattleScene extends Phaser.Scene {
 
     create(data) {
         const { width, height } = this.scale;
+
+         if (data?.runTutorial === 1) {
+            this.isTutorialMode = true;
+            this.audioUnlocked = true;
+        }
+
         const currentStageData = DataManager.getStageData(this.currentStage);
         const enemyData = currentStageData ? currentStageData.enemy : { name: "UNKNOWN", hp: 100, color: 0xe74c3c };
         this.currentStageData = currentStageData;
@@ -119,8 +128,13 @@ export default class BattleScene extends Phaser.Scene {
         });
 
         // NÚT 1: HƯỚNG DẪN (Đẩy lên Y: 0.52)
-        const tutorialBtn = this.add.rectangle(width / 2, height * 0.52, 320, 60, 0x2a6e2a).setStrokeStyle(3, 0x66ff66).setInteractive({ useHandCursor: true })
-            .on('pointerdown', () => { this.unlockAudio(); this.scene.start('TutorialScene', { audioUnlocked: true }); });
+      const tutorialBtn = this.add.rectangle(width / 2, height * 0.52, 320, 60, 0x2a6e2a).setStrokeStyle(3, 0x66ff66).setInteractive({ useHandCursor: true })
+            .on('pointerdown', () => { 
+                this.unlockAudio(); 
+                // Thay vì chuyển sang TutorialScene, ta restart chính BattleScene và truyền cờ khởi động hướng dẫn
+                this.scene.restart({ audioUnlocked: true, runTutorial: 1 }); 
+            });
+
         this.add.text(width / 2, height * 0.52, 'HƯỚNG DẪN', { fontSize: '26px', color: '#aaffaa', fontStyle: 'bold' }).setOrigin(0.5);
 
         // NÚT 2 (MỚI): CHỌN MÀN CHƠI (Y: 0.65)
@@ -590,6 +604,19 @@ export default class BattleScene extends Phaser.Scene {
         // this.fightIcon.setAlpha(0.5);
 
         this.matchOver = false;
+
+        if (this.isTutorialMode && this.matchRound === 1) {
+            // Hủy bài cũ
+            [...this.getPlayerReserveList(), ...this.enemyReserveCards, this.playerCoreCard, this.enemyCoreCard].forEach((c) => c && c.destroy());
+            this.playerReserveSlots = Array(5).fill(null);
+            
+            this.roundText?.setText('HƯỚNG DẪN: PHẦN 1');
+            
+            // Gọi hệ thống hướng dẫn thiết lập bàn cờ
+            TutorialSystem.startTutorial1(this);
+            return; // Thoát hàm, nhường toàn bộ sân khấu cho Đạo diễn Tutorial!
+        }
+
         const stageData = DataManager.getStageData(this.currentStage);
         if (stageData) {
             this.currentStageData = stageData;
@@ -829,10 +856,12 @@ export default class BattleScene extends Phaser.Scene {
             }
             
             // TÁCH LOGIC: Hàm checkMerge từ GameLogic
-            const mergeResult = this.logic.checkMerge(draggedCard.cardData, bestTarget.cardData);
+            //const mergeResult = this.logic.checkMerge(draggedCard.cardData, bestTarget.cardData);
             const targetIsCore = bestTarget === this.playerCoreCard;
             const targetSlot = this.getReserveSlotIndexOfCard(bestTarget);
             const targetInReserve = targetSlot >= 0;
+
+            const mergeResult = this.isTutorialMode ? { valid: false } : this.logic.checkMerge(draggedCard.cardData, bestTarget.cardData);
 
             if (mergeResult.valid) {
                 const coreInvolved = draggedIsCore || targetIsCore;
@@ -899,6 +928,23 @@ export default class BattleScene extends Phaser.Scene {
         if (!done) { draggedCard.snapBack(); }
         this.time.delayedCall(280, () => { this.updateFightButtonState(); this.refreshCombatPreview(); 
         this.startRumbleTimer();
+
+         if (this.isTutorialMode) {
+                if (this.playerCoreCard && this.playerCoreCard.cardData.name === 'Water') {
+                    // Dọn sạch khung thoại cũ của Bước 5
+                    if (this.tutorialArrow) { this.tutorialArrow.destroy(); this.tutorialArrow = null; }
+                    if (this.tutorialDialog) { this.tutorialDialog.destroy(); this.tutorialDialog = null; }
+                    
+                    this.fightBtn.setInteractive({ useHandCursor: true });
+                    this.fightBtn.fillColor = 0xffa500;
+                    this.fightIcon.setAlpha(1);
+                } else {
+                    this.fightBtn.disableInteractive();
+                    this.fightBtn.fillColor = 0x555555;
+                    this.fightIcon.setAlpha(0.5);
+                }
+            }
+
         });
     }
 
@@ -959,6 +1005,11 @@ export default class BattleScene extends Phaser.Scene {
         
         // 1. Tính sát thương ban đầu
         if (result === 'THẮNG') {
+
+            const damage = this.isTutorialMode ? 100 : this.getDamageForVictory(winnerCardData ?? this.playerCoreCard?.cardData);
+this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - damage, 0, this.enemyMaxHealth);
+            this.tweens.add({ targets: this.enemySprite, x: this.enemySprite.x + 10, duration: 50, yoyo: true, repeat: 3 });
+
             dmgRef.value = this.getDamageForVictory(winnerCardData ?? this.playerCoreCard?.cardData);
         } else if (result === 'THUA') {
             dmgRef.value = this.getDamageForVictory(winnerCardData ?? this.enemyCoreCard?.cardData);
@@ -1077,7 +1128,21 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         this.time.delayedCall(2000, () => {
-            waitScreen.destroy(); clashText.destroy(); this.input.enabled = true;
+           // waitScreen.destroy(); clashText.destroy(); this.input.enabled = true;
+
+            clashText.destroy(); 
+            this.input.enabled = true;
+
+             if (this.isTutorialMode) {
+                    TutorialSystem.showVictoryDialogue(this);
+                    return; // Thoát ra không chuyển vòng đấu nữa
+                }
+
+             if (this.isTutorialMode && finalResult === 'WIN') {
+                TutorialSystem.showVictoryDialogue(this);
+                return; // Thắng luôn, dừng toàn bộ trận đấu
+            }
+
             if (this.playerHealth <= 0 || this.enemyHealth <= 0) { this.finishMatch(); return; }
             this.clearAllLocks();
             this.matchRound++; if (this.matchRound > this.maxRounds) { this.finishMatch(); } else { this.startStage(); }
