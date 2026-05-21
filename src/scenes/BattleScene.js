@@ -265,6 +265,21 @@ export default class BattleScene extends Phaser.Scene {
         this.setSwapButtonState(this.playerHealth > 0 && !this.matchOver);
     }
 
+    updateFightButtonState() {
+        // Chỉ cho phép bấm FIGHT nếu: Có bài ở Core Player VÀ có bài ở Core Enemy VÀ trận đấu chưa kết thúc
+        const canFight = this.playerCoreCard && this.enemyCoreCard && !this.matchOver;
+
+        if (canFight) {
+            this.fightBtn.setInteractive({ useHandCursor: true });
+            this.fightBtn.fillColor = 0xffa500; // Sáng màu cam
+            this.fightIcon.setAlpha(1); // Sáng icon kiếm
+        } else {
+            this.fightBtn.disableInteractive();
+            this.fightBtn.fillColor = 0x555555; // Mờ màu xám
+            this.fightIcon.setAlpha(0.5); // Mờ icon kiếm
+        }
+    }
+
     createSwapButton() {
         const { x, y } = this.getPlayerReserveSlotWorldXY(4); 
         this.swapBtn = this.add.rectangle(x + 80, this.coreY, 44, 44, 0x2a2a3d, 0.95).setStrokeStyle(2, 0xffd700).setInteractive({ useHandCursor: true }).setDepth(20);
@@ -334,8 +349,10 @@ export default class BattleScene extends Phaser.Scene {
     getPlayerReserveList() { return this.playerReserveSlots.filter((c) => c != null && c.active); }
 
     startStage() {
-        this.fightBtn.disableInteractive();
-        this.fightIcon.setAlpha(0.5);
+        this.updateFightButtonState(); 
+        // this.fightBtn.disableInteractive();
+        // this.fightIcon.setAlpha(0.5);
+
         this.matchOver = false;
         const stageData = DataManager.getStageData(this.currentStage);
         if (stageData) {
@@ -449,8 +466,9 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     enemyReady() {
-        this.fightBtn.setInteractive();
-        this.fightIcon.setAlpha(1);
+        // Cập nhật nút FIGHT (Nếu Player đã có bài trên Core thì nút sẽ sáng lên)
+        this.updateFightButtonState();
+
         if (this.enemyReadyText) {
             this.enemyReadyText.setVisible(true);
             if (this.enemyReadyTimer) this.enemyReadyTimer.remove();
@@ -487,25 +505,25 @@ export default class BattleScene extends Phaser.Scene {
     clearSlotForCard(card) { const i = this.getReserveSlotIndexOfCard(card); if (i >= 0) this.playerReserveSlots[i] = null; }
     swapReserveSlots(ia, ib) { const t = this.playerReserveSlots[ia]; this.playerReserveSlots[ia] = this.playerReserveSlots[ib]; this.playerReserveSlots[ib] = t; this.layoutPlayerReserveSlots(); }
 
-    ensurePlayerCoreFilled(duration = 400) {
-        if (this.playerCoreCard != null) return;
-        for (let i = 0; i < RESERVE_SLOT_COUNT; i++) {
-            const card = this.playerReserveSlots[i];
-            if (card?.active) {
-                this.playerReserveSlots[i] = null;
-                this.playerCoreCard = card;
-                this.tweens.add({
-                    targets: card, x: this.coreX, y: this.coreY, duration, ease: 'Sine.easeOut',
-                    onComplete: () => {
-                        card.originalPos = { x: this.coreX, y: this.coreY };
-                        this.refreshCombatPreview();
-                    }
-                });
-                this.layoutPlayerReserveSlots(duration);
-                return;
-            }
-        }
-    }
+    // ensurePlayerCoreFilled(duration = 400) {
+    //     if (this.playerCoreCard != null) return;
+    //     for (let i = 0; i < RESERVE_SLOT_COUNT; i++) {
+    //         const card = this.playerReserveSlots[i];
+    //         if (card?.active) {
+    //             this.playerReserveSlots[i] = null;
+    //             this.playerCoreCard = card;
+    //             this.tweens.add({
+    //                 targets: card, x: this.coreX, y: this.coreY, duration, ease: 'Sine.easeOut',
+    //                 onComplete: () => {
+    //                     card.originalPos = { x: this.coreX, y: this.coreY };
+    //                     this.refreshCombatPreview();
+    //                 }
+    //             });
+    //             this.layoutPlayerReserveSlots(duration);
+    //             return;
+    //         }
+    //     }
+    // }
 
     refreshCombatPreview() {
         const p = this.playerCoreCard; const e = this.enemyCoreCard;
@@ -551,6 +569,14 @@ export default class BattleScene extends Phaser.Scene {
         let done = false;
 
         if (bestTarget) {
+
+             if (bestTarget.isLocked) {
+                // Nếu lá bị đè lên đang bị khóa -> Hủy bỏ thao tác, nhả bài về chỗ cũ
+                draggedCard.snapBack();
+                playSfx(this, 'sfx_swap'); // Có thể dùng âm thanh báo lỗi ở đây nếu có
+                return; // Thoát hàm luôn, không cho ghép hay swap gì cả
+            }
+            
             // TÁCH LOGIC: Hàm checkMerge từ GameLogic
             const mergeResult = this.logic.checkMerge(draggedCard.cardData, bestTarget.cardData);
             const targetIsCore = bestTarget === this.playerCoreCard;
@@ -596,6 +622,8 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         if (!done && !draggedIsCore && Phaser.Math.Distance.Between(wx, wy, z.x, z.y) < z.r) {
+
+
             const draggedSlot = this.getReserveSlotIndexOfCard(draggedCard);
             this.clearSlotForCard(draggedCard);
             if (this.playerCoreCard) {
@@ -618,14 +646,14 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         if (!done) { draggedCard.snapBack(); }
-        this.time.delayedCall(280, () => { this.ensurePlayerCoreFilled(); this.refreshCombatPreview(); });
+        this.time.delayedCall(280, () => { this.updateFightButtonState(); this.refreshCombatPreview(); });
     }
 
     async animateFightOrbit(playerCard, enemyCard) {
         const center = this.fightCenter;
         playerCard.setDepth(20); enemyCard.setDepth(20);
 
-        return Promise.all([
+        return Promise.all([    
             this.tweenPromise({ targets: playerCard, x: center.x - 60, y: center.y, duration: 350, ease: 'Power2.easeIn' }),
             this.tweenPromise({ targets: enemyCard, x: center.x + 60, y: center.y, duration: 350, ease: 'Power2.easeIn' })
         ]).then(() => { playerCard.setRotation(0); enemyCard.setRotation(0); });
@@ -674,24 +702,49 @@ export default class BattleScene extends Phaser.Scene {
     }
 
     applyRoundOutcome(result, winnerCardData = null, loserCardData = null) {
+        let dmgRef = { value: 0 };
+        
+        // 1. Tính sát thương ban đầu
         if (result === 'THẮNG') {
-            const damage = this.getDamageForVictory(winnerCardData ?? this.playerCoreCard?.cardData);
-            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - damage, 0, this.enemyMaxHealth || START_HEALTH);
-            this.tweens.add({ targets: this.enemySprite, x: this.enemySprite.x + 10, duration: 50, yoyo: true, repeat: 3 });
+            dmgRef.value = this.getDamageForVictory(winnerCardData ?? this.playerCoreCard?.cardData);
         } else if (result === 'THUA') {
-            const damage = this.getDamageForVictory(winnerCardData ?? this.enemyCoreCard?.cardData);
-            this.playerHealth = Phaser.Math.Clamp(this.playerHealth - damage, 0, START_HEALTH);
-            this.tweens.add({ targets: this.playerSprite, x: this.playerSprite.x - 10, duration: 50, yoyo: true, repeat: 3 });
+            dmgRef.value = this.getDamageForVictory(winnerCardData ?? this.enemyCoreCard?.cardData);
         } else if (result === 'HÒA') {
-            const tieDamage = 10;
-            this.playerHealth = Phaser.Math.Clamp(this.playerHealth - tieDamage, 0, START_HEALTH);
-            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - tieDamage, 0, this.enemyMaxHealth || START_HEALTH);
+            dmgRef.value = 10;
+        }
+
+        // 2. GỌI BOSS SKILL ENGINE ĐỂ KIỂM TRA GIÁP / KHÁNG TÍNH
+        // Nếu Player tung bài (dù Thắng, Thua hay Hòa), đều phải check xem có đốt được Giáp Mộc của Boss không.
+        const playerCardUsed = this.playerCoreCard?.cardData;
+        if (playerCardUsed && this.currentEnemyData) {
+            BossSkillEngine.checkSpecialDefenses(this, playerCardUsed, dmgRef);
+        }
+
+        // Nếu Damage đã bị chặn (Kháng) hoặc hao hụt khi phá giáp -> dmgRef.value sẽ = 0.
+        
+        // 3. Thực thi sát thương cuối cùng
+        if (result === 'THẮNG') {
+            // Skill phụ (vd: Giảm 50% dmg của Ma Thạch)
+            BossSkillEngine.executeTrigger(this, this.currentEnemyData, 'onDamageTake', { 
+                attackElement: winnerCardData?.name, damageRef: dmgRef 
+            });
+
+            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - dmgRef.value, 0, this.enemyMaxHealth || START_HEALTH);
+            this.tweens.add({ targets: this.enemySprite, x: this.enemySprite.x + 10, duration: 50, yoyo: true, repeat: 3 });
+            
+        } else if (result === 'THUA') {
+            this.playerHealth = Phaser.Math.Clamp(this.playerHealth - dmgRef.value, 0, START_HEALTH);
+            this.tweens.add({ targets: this.playerSprite, x: this.playerSprite.x - 10, duration: 50, yoyo: true, repeat: 3 });
+            
+        } else if (result === 'HÒA') {
+            // Khi hòa, Boss chịu sát thương dmgRef (có thể = 0 do kháng), Player chịu 10
+            this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - dmgRef.value, 0, this.enemyMaxHealth || START_HEALTH);
+            this.playerHealth = Phaser.Math.Clamp(this.playerHealth - 10, 0, START_HEALTH);
             this.tweens.add({ targets: this.enemySprite, x: this.enemySprite.x + 10, duration: 50, yoyo: true, repeat: 3 });
             this.tweens.add({ targets: this.playerSprite, x: this.playerSprite.x - 10, duration: 50, yoyo: true, repeat: 3 });
         }
         this.updateHealthUI();
     }
-
     clearAllLocks() {
         this.getPlayerReserveList().forEach(card => card.setLock(false));
     }
@@ -701,7 +754,7 @@ export default class BattleScene extends Phaser.Scene {
         this.fightBtn.disableInteractive(); this.swapBtn?.disableInteractive(); this.fightIcon.setAlpha(0.5); this.input.enabled = false;
         playSfx(this, 'sfx_fight', { volume: 0.55 });
 
-        if (!this.playerCoreCard) this.ensurePlayerCoreFilled(0);
+        //if (!this.playerCoreCard) this.ensurePlayerCoreFilled(0);
 
         const waitScreen = this.add.rectangle(this.scale.width / 2, this.fightCenter.y, this.scale.width, 160, 0x000000, 0.75).setDepth(210);
         const clashText = this.add.text(this.scale.width / 2, this.fightCenter.y, 'CHIẾN ĐẤU...', { fontSize: '28px', color: '#ffcc00', align: 'center', fontStyle: 'bold' }).setOrigin(0.5).setDepth(211);
@@ -921,6 +974,11 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         this.playerHealth = 100; // Hồi đầy máu Player
+
+         this.bossHasWoodShield = false;
+        if (this.woodShieldGraphic) {
+            this.woodShieldGraphic.setVisible(false);
+        }
         this.updateHealthUI();
         this.startStage();
     }

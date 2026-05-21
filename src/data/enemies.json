@@ -29,7 +29,7 @@
         {
           "name": "Giáp Mộc Che Chở",
           "trigger": "onRoundStart",
-          "condition": { "rounds": [3, 5] },
+          "condition": { "rounds": [1, 3] },
           "action": "gain_wood_shield"
         }
       ]

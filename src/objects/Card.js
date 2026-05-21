@@ -208,9 +208,13 @@ export default class Card extends Phaser.GameObjects.Container {
             this.originalPos = { x: this.x, y: this.y };
         });
 
-        this.on('drag', (pointer, dragX, dragY) => { this.x = dragX; this.y = dragY; this.checkHoverTargets(); });
+        this.on('drag', (pointer, dragX, dragY) => { 
+        if (this.isLocked) return;
+        this.x = dragX; this.y = dragY; this.checkHoverTargets(); 
+    });
 
         this.on('dragend', () => {
+             if (this.isLocked) return;
             this.setDepth(this.originalDepth); 
             this.scene.tweens.add({ targets: this, scale: this.originalScale, duration: 100 });
             this.iconPlus.setVisible(false); this.iconCross.setVisible(false);
@@ -227,6 +231,7 @@ export default class Card extends Phaser.GameObjects.Container {
     
 
     checkHoverTargets() {
+         if (this.isLocked) return;
         this.iconPlus.setVisible(false); this.iconCross.setVisible(false);
         this.hoverTargets.forEach(target => target.drawBackground(false));
         this.hoverTargets = [];
@@ -234,6 +239,10 @@ export default class Card extends Phaser.GameObjects.Container {
         if (this.scene.playerCoreCard && this.scene.getReserveSlotIndexOfCard?.(this) >= 0) {
             const z = this.scene.getCoreZone?.();
             if (z && Phaser.Math.Distance.Between(this.x, this.y, z.x, z.y) < z.r + 28) {
+                  if (this.scene.playerCoreCard.isLocked) {
+                    this.iconCross.setVisible(true);
+                    return;
+                }
                 const mergeData = this.scene.logic.checkMerge(this.cardData, this.scene.playerCoreCard.cardData);
                 if (mergeData.valid) {
                     this.iconPlus.setVisible(true);
@@ -247,6 +256,10 @@ export default class Card extends Phaser.GameObjects.Container {
         const reserveList = this.scene.getPlayerReserveList?.() ?? this.scene.playerReserveCards ?? [];
         for (let target of reserveList) {
             if (target !== this && Phaser.Math.Distance.Between(this.x, this.y, target.x, target.y) < 60) {
+                if (target.isLocked) {
+                    this.iconCross.setVisible(true);
+                    break;
+                }
                 const mergeData = this.scene.logic.checkMerge(this.cardData, target.cardData);
                 if (mergeData.valid) {
                     this.iconPlus.setVisible(true);
