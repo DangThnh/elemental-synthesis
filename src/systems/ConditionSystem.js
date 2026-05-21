@@ -37,7 +37,7 @@ export default class ConditionSystem {
 
         // --- 2. SỨC NÓNG CỰC HẠN (Extreme Heat) ---
         if (cond === 'extreme_heat' || cond === 'rumble_and_heat') {
-            if (scene.matchRound % 2 === 0) {
+            // if (scene.matchRound % 2 === 0) {
                 this.showEnvText(scene, '🔥 SỨC NÓNG CỰC HẠN!\nMôi trường thiêu đốt!');
 
                 const playerHasWater = scene.getPlayerReserveList().some(card => {
@@ -71,7 +71,7 @@ export default class ConditionSystem {
 
                     scene.updateHealthUI();
                 });
-            }
+            //}
         }
     }
 

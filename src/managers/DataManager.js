@@ -8,10 +8,8 @@ class DataManager {
         this.parseData();
     }
 
-    // Biến JSON thành Map để tra cứu siêu tốc bằng ID
     parseData() {
         enemiesData.enemies.forEach(enemy => {
-            // Chuyển string "0x..." thành mã số màu thực tế cho Phaser
             if (enemy.color) {
                 enemy.color = parseInt(enemy.color, 16); 
             }
@@ -25,30 +23,38 @@ class DataManager {
         console.log("✅ DataManager Loaded Successfully!");
     }
 
-    /**
-     * Lấy toàn bộ thông tin của màn chơi (bao gồm cả data của Quái)
-     * @param {number} stageId 
-     * @returns {Object} Data tổng hợp
-     */
     getStageData(stageId) {
         const stage = this.stages.get(stageId);
         if (!stage) {
             console.warn(`Stage ${stageId} không tồn tại!`);
             return null;
         }
-
         const enemy = this.enemies.get(stage.enemy_id);
-        
-        // Gộp data của Stage và Enemy lại trả về cho BattleScene
         return {
-            stageId: stage.stage_id,
-            chapter: stage.chapter,
-            condition_id: stage.condition_id,
+            ...stage,
             enemy: enemy
         };
     }
+
+    /**
+     * MỚI: Lấy danh sách toàn bộ màn chơi thuộc một Chapter
+     * và đính kèm luôn Tên của con Quái vật trong màn đó
+     */
+    getStagesByChapter(chapterNum) {
+        const stageList = [];
+        this.stages.forEach(stage => {
+            if (stage.chapter === chapterNum) {
+                const enemy = this.enemies.get(stage.enemy_id);
+                stageList.push({
+                    stageId: stage.stage_id,
+                    enemyName: enemy ? enemy.name : "UNKNOWN"
+                });
+            }
+        });
+        // Sắp xếp màn chơi từ nhỏ đến lớn
+        return stageList.sort((a, b) => a.stageId - b.stageId);
+    }
 }
 
-// Export một instance duy nhất (Singleton Pattern) để dùng chung toàn game
 const instance = new DataManager();
 export default instance;

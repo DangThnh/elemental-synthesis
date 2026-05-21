@@ -33,6 +33,9 @@ export default class BattleScene extends Phaser.Scene {
         //this.enemyHealth = START_HEALTH;
          this.enemyHealth = 100;
         this.enemyMaxHealth = 100;
+
+        this.bossHeatValue = 0;
+
         this.reserveWarSpeedMult = 1;
         
         this.slotFrameG = null;
@@ -52,6 +55,25 @@ export default class BattleScene extends Phaser.Scene {
 
         // --- KHỞI TẠO HỆ THỐNG ---
         this.poolSystem = new PoolSystem();
+    }
+
+    init() {
+        // Reset toàn bộ biến giao diện về null/rỗng để tránh lỗi "sys" của đối tượng cũ
+        this.swapBtn = null;
+        this.playerHealthBarBg = null;
+        this.playerHealthBarFill = null;
+        this.enemyHealthBarBg = null;
+        this.enemyHealthBarFill = null;
+        this.playerHeartIcons = [];
+        this.enemyHeartIcons = [];
+        this.slotFrameG = null;
+        this.matchResultContainer = null;
+        this.woodShieldGraphic = null;
+
+        // Reset lại điểm số mặc định
+        this.playerHealth = START_HEALTH;
+        this.enemyHealth = START_HEALTH;
+        this.matchOver = false;
     }
 
     preload() {
@@ -80,24 +102,170 @@ export default class BattleScene extends Phaser.Scene {
         this.createStartScreen();
     }
 
-    createStartScreen() {
+   createStartScreen() {
         const { width, height } = this.scale;
-        this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e, 0.9);
-        this.add.text(width / 2, height * 0.25, 'ELEMENTAL SYNTHESIS', { fontSize: '48px', color: '#ffd700', fontStyle: 'bold' }).setOrigin(0.5);
-        this.add.text(width / 2, height * 0.34, 'Ngũ Hành Tương Sinh Tương Khắc', { fontSize: '24px', color: '#ffffff' }).setOrigin(0.5);
 
+        // Background tối màu
+        this.add.rectangle(width / 2, height / 2, width, height, 0x1a1a2e, 0.9);
+
+        // Title chính
+        this.add.text(width / 2, height * 0.18, 'ELEMENTAL SYNTHESIS', { fontSize: '44px', color: '#ffd700', fontStyle: 'bold' }).setOrigin(0.5);
+        this.add.text(width / 2, height * 0.25, 'Ngũ Hành Tương Sinh Tương Khắc', { fontSize: '22px', color: '#ffffff' }).setOrigin(0.5);
+
+        // Lời khuyên/Hướng dẫn
         const instructions = ['🔊 Nhấn để kích hoạt âm thanh', '⚔️ Chiến đấu với các nguyên tố ngũ hành', '💡 Nhấn "?" để xem bảng tra cứu'];
         instructions.forEach((text, index) => {
-            this.add.text(width / 2, height * 0.44 + index * 36, text, { fontSize: '20px', color: '#cccccc' }).setOrigin(0.5);
+            this.add.text(width / 2, height * 0.33 + index * 36, text, { fontSize: '20px', color: '#cccccc' }).setOrigin(0.5);
         });
 
-        const tutorialBtn = this.add.rectangle(width / 2, height * 0.64, 320, 70, 0x2a6e2a).setStrokeStyle(3, 0x66ff66).setInteractive({ useHandCursor: true })
+        // NÚT 1: HƯỚNG DẪN (Đẩy lên Y: 0.52)
+        const tutorialBtn = this.add.rectangle(width / 2, height * 0.52, 320, 60, 0x2a6e2a).setStrokeStyle(3, 0x66ff66).setInteractive({ useHandCursor: true })
             .on('pointerdown', () => { this.unlockAudio(); this.scene.start('TutorialScene', { audioUnlocked: true }); });
-        this.add.text(width / 2, height * 0.64, 'HƯỚNG DẪN', { fontSize: '30px', color: '#aaffaa', fontStyle: 'bold' }).setOrigin(0.5);
+        this.add.text(width / 2, height * 0.52, 'HƯỚNG DẪN', { fontSize: '26px', color: '#aaffaa', fontStyle: 'bold' }).setOrigin(0.5);
 
-        const startBtn = this.add.rectangle(width / 2, height * 0.78, 320, 70, 0xffa500).setStrokeStyle(3, 0xffdd44).setInteractive({ useHandCursor: true })
+        // NÚT 2 (MỚI): CHỌN MÀN CHƠI (Y: 0.65)
+        const stageSelectBtn = this.add.rectangle(width / 2, height * 0.65, 320, 60, 0x2e86de).setStrokeStyle(3, 0x54a0ff).setInteractive({ useHandCursor: true })
+            .on('pointerdown', () => { this.showStageSelectPanel(); });
+        this.add.text(width / 2, height * 0.65, 'CHỌN MÀN CHƠI', { fontSize: '26px', color: '#81ecec', fontStyle: 'bold' }).setOrigin(0.5);
+
+        // NÚT 3: BẮT ĐẦU CHƠI NGAY (Y: 0.78)
+        const startBtn = this.add.rectangle(width / 2, height * 0.78, 320, 60, 0xffa500).setStrokeStyle(3, 0xffdd44).setInteractive({ useHandCursor: true })
             .on('pointerdown', () => { this.unlockAudio(); this.scene.restart({ audioUnlocked: true }); });
-        this.add.text(width / 2, height * 0.78, 'BẮT ĐẦU', { fontSize: '30px', color: '#000', fontStyle: 'bold' }).setOrigin(0.5);
+        this.add.text(width / 2, height * 0.78, 'BẮT ĐẦU', { fontSize: '26px', color: '#000', fontStyle: 'bold' }).setOrigin(0.5);
+    }
+
+    showStageSelectPanel() {
+        const { width, height } = this.scale;
+        
+        // Tạo container bọc toàn bộ Panel chọn màn
+        const panelCont = this.add.container(width / 2, height / 2).setDepth(100);
+        
+        // 1. Khung nền tối bọc ngoài
+        const bg = this.add.rectangle(0, 0, width * 0.88, height * 0.75, 0x1e272e, 0.98).setStrokeStyle(3, 0xffd700);
+        panelCont.add(bg);
+
+        // Title của bảng
+        const title = this.add.text(0, -height * 0.32, 'CHỌN MÀN CHƠI', { fontSize: '32px', color: '#ffd700', fontStyle: 'bold' }).setOrigin(0.5);
+        panelCont.add(title);
+
+        // Nút Đóng bảng ở góc dưới
+        const closeBtn = this.add.rectangle(0, height * 0.31, 160, 44, 0xe74c3c).setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
+        const closeText = this.add.text(0, height * 0.31, 'ĐÓNG', { fontSize: '20px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+        closeBtn.on('pointerdown', () => panelCont.destroy());
+        panelCont.add([closeBtn, closeText]);
+
+        // --- CẤU TRÚC TABS CHO CHAPTER ---
+        const tabY = -height * 0.24;
+        const tabW = (width * 0.8) / 2;
+        
+        // Tab Chapter 1
+        const tab1 = this.add.rectangle(-tabW/2 - 5, tabY, tabW, 46, 0x2c3e50).setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
+        const tab1Text = this.add.text(-tabW/2 - 5, tabY, 'CHAPTER 1', { fontSize: '18px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+        
+        // Tab Chapter 2
+        const tab2 = this.add.rectangle(tabW/2 + 5, tabY, tabW, 46, 0x2c3e50).setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
+        const tab2Text = this.add.text(tabW/2 + 5, tabY, 'CHAPTER 2', { fontSize: '18px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+        
+        panelCont.add([tab1, tab1Text, tab2, tab2Text]);
+
+        // Mảng quản lý các nút Stage để vẽ lại mỗi khi chuyển Tab
+        let stageButtons = [];
+
+        // Hàm vẽ danh sách các Màn chơi theo Chapter
+        const renderStages = (chapterNum) => {
+            // Xóa các nút cũ trước khi vẽ mới
+            stageButtons.forEach(btn => btn.destroy());
+            stageButtons = [];
+
+            // Làm sáng Tab được chọn, làm tối Tab kia
+            tab1.setFillStyle(chapterNum === 1 ? 0x2e86de : 0x2c3e50);
+            tab2.setFillStyle(chapterNum === 2 ? 0x2e86de : 0x2c3e50);
+
+            // Lấy data các màn từ DataManager
+            const stages = DataManager.getStagesByChapter(chapterNum);
+            
+            // Vẽ danh sách màn dạng cột dọc
+            stages.forEach((stage, index) => {
+                const btnY = -height * 0.12 + index * 75; // Cách nhau 75px theo chiều dọc
+                
+                const sBtn = this.add.rectangle(0, btnY, width * 0.76, 56, 0x34495e).setStrokeStyle(1, 0x81ecec).setInteractive({ useHandCursor: true });
+                
+                // Hiển thị: Màn X - [Tên Quái]
+                const sText = this.add.text(0, btnY, `Màn ${stage.stageId}: ${stage.enemyName}`, { 
+                    fontSize: '20px', color: '#fff', fontStyle: 'bold' 
+                }).setOrigin(0.5);
+
+                // Khi click vào stage -> Bắt đầu chơi màn đó ngay lập tức!
+                sBtn.on('pointerdown', () => {
+                    this.currentStage = stage.stageId; // Gán màn chơi được chọn
+                    this.unlockAudio(); // Mở khóa âm thanh
+                    panelCont.destroy(); // Hủy bảng
+                    this.scene.restart({ audioUnlocked: true }); // Chạy game luôn!
+                });
+
+                panelCont.add([sBtn, sText]);
+                stageButtons.push(sBtn, sText); // Lưu lại để xóa khi đổi tab
+            });
+        };
+
+        // Gán sự kiện click đổi Tab
+        tab1.on('pointerdown', () => renderStages(1));
+        tab2.on('pointerdown', () => renderStages(2));
+
+        // Mặc định tự động vẽ Chapter 1 trước
+        renderStages(1);
+    }
+
+    showPauseMenu() {
+        const { width, height } = this.scale;
+        playSfx(this, 'sfx_swap'); // Tiếng click nhẹ
+
+        // Tạo container đè lên toàn màn hình (Depth 9999)
+        const pauseCont = this.add.container(width / 2, height / 2).setDepth(9999);
+
+        // 1. Phông đen phủ kín màn hình
+        // FIX CLICK-THROUGH: setInteractive() để chặn người chơi click đè xuống các lá bài phía dưới!
+        const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.8)
+            .setInteractive(); 
+        pauseCont.add(overlay);
+
+        // 2. Khung bảng gỗ tối
+        const panel = this.add.rectangle(0, 0, width * 0.75, 300, 0x2c3e50, 0.98).setStrokeStyle(3, 0xffffff);
+        pauseCont.add(panel);
+
+        // Chữ TẠM DỪNG
+        const title = this.add.text(0, -90, 'TẠM DỪNG', { fontSize: '32px', color: '#ffcc00', fontStyle: 'bold' }).setOrigin(0.5);
+        pauseCont.add(title);
+
+        // NÚT 1: TIẾP TỤC (Resume)
+        const resumeBtn = this.add.rectangle(0, -10, 200, 50, 0x2e86de).setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
+        const resumeText = this.add.text(0, -10, 'TIẾP TỤC', { fontSize: '20px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+        
+        resumeBtn.on('pointerdown', () => {
+            playSfx(this, 'sfx_swap');
+            pauseCont.destroy(); // Hủy bảng, chơi tiếp bình thường
+        });
+        pauseCont.add([resumeBtn, resumeText]);
+
+        // NÚT 2: MENU CHÍNH (Quay về màn hình khởi tạo)
+        const menuBtn = this.add.rectangle(0, 60, 200, 50, 0xe74c3c).setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
+        const menuText = this.add.text(0, 60, 'MENU CHÍNH', { fontSize: '20px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+        
+        menuBtn.on('pointerdown', () => {
+            playSfx(this, 'sfx_swap');
+            pauseCont.destroy();
+            
+            // Khởi tạo lại toàn bộ chỉ số để quay về Start Screen sạch sẽ
+            this.audioUnlocked = false; 
+            this.matchRound = 1;
+            this.currentStage = 1;
+            this.playerHealth = 100;
+            this.enemyHealth = 100;
+            
+            // Restart lại scene và đưa người chơi về màn hình Bắt đầu
+            this.scene.restart({ audioUnlocked: false });
+        });
+        pauseCont.add([menuBtn, menuText]);
     }
 
     unlockAudio() {
@@ -171,6 +339,21 @@ export default class BattleScene extends Phaser.Scene {
         this.fightIcon = this.add.image(width - 50, this.fightCenter.y, 'icon_swords').setDisplaySize(40, 40);
 
         this.createDrawerUI();
+
+        // ==========================================
+        // 5. NÚT TẠM DỪNG (PAUSE) - GÓC TRÁI TRÊN CÙNG MÀN HÌNH
+        // ==========================================
+        const pauseBtn = this.add.rectangle(40, 40, 44, 44, 0x2a2a3d, 0.95)
+            .setStrokeStyle(2, 0xffffff)
+            .setInteractive({ useHandCursor: true })
+            .setDepth(25);
+        this.add.text(40, 40, '‖', { fontSize: '24px', color: '#ffffff', fontStyle: 'bold' })
+            .setOrigin(0.5)
+            .setDepth(26);
+
+        // Kích hoạt bảng Pause khi click
+        pauseBtn.on('pointerdown', () => this.showPauseMenu());
+
         this.startStage();
     }
 
@@ -241,6 +424,16 @@ export default class BattleScene extends Phaser.Scene {
             fontSize: '22px', color: '#ffee88', fontStyle: 'bold', backgroundColor: 'rgba(30,30,30,0.8)', padding: { x: 10, y: 6 }
         }).setOrigin(1, 0.5).setDepth(20).setVisible(false);
 
+        // if (this.currentEnemyData && this.currentEnemyData.id === 'ch2_boss_efreet') {
+        //     this.bossHeatValue = 0; // Reset nhiệt lượng về 0
+
+        //       // Vẽ thanh nhiệt lượng màu cam dưới thanh máu của Boss (enemyBarY + 20)
+        //     this.enemyHeatBarBg = this.add.rectangle(enemyBarX, enemyBarY + 18, barWidth, 8, 0x000000)
+        //         .setStrokeStyle(1, 0xffffff).setOrigin(0.5).setDepth(5);
+        //     this.enemyHeatBarFill = this.add.rectangle(enemyBarX - barWidth / 2, enemyBarY + 18, barWidth, 8, 0xff5500)
+        //         .setOrigin(0, 0.5).setDepth(6);
+        // }
+
         this.updateHealthUI();
     }
 
@@ -264,6 +457,44 @@ export default class BattleScene extends Phaser.Scene {
         this.tweens.add({ targets: this.playerHealthBarFill, displayWidth: this.playerHealthBarBg.width * pctP, duration: 300 });
         this.tweens.add({ targets: this.enemyHealthBarFill, displayWidth: this.enemyHealthBarBg.width * pctE, duration: 300 });
         this.setSwapButtonState(this.playerHealth > 0 && !this.matchOver);
+    }
+
+   updateHeatBarUI() {
+        if (this.enemyHeatBarFill && this.enemyHeatBarBg) {
+            const pct = Math.max(0, this.bossHeatValue / 100);
+            
+            // FIX: Đổi từ enemyHealthBarBg.width sang enemyHeatBarBg.width để co giãn chuẩn xác
+            this.tweens.add({ 
+                targets: this.enemyHeatBarFill, 
+                displayWidth: this.enemyHeatBarBg.width * pct, 
+                duration: 200 
+            });
+        }
+    }
+
+   refreshHeatBar() {
+        // 1. Hủy thanh cũ nếu có để tránh vẽ đè khi chuyển màn chơi
+        if (this.enemyHeatBarBg) { this.enemyHeatBarBg.destroy(); this.enemyHeatBarBg = null; }
+        if (this.enemyHeatBarFill) { this.enemyHeatBarFill.destroy(); this.enemyHeatBarFill = null; }
+
+        // 2. Chỉ vẽ nếu là Boss Hỏa Thần ch2_boss_efreet
+        if (this.currentEnemyData && this.currentEnemyData.id === 'ch2_boss_efreet') {
+            //this.bossHeatValue = 0; // Reset điểm nhiệt về 0
+            
+            const barWidth = 200; // Ngắn hơn thanh máu (260)
+            const barHeight = 8;
+            const x = this.scale.width - 120; // Cùng trục X với thanh máu địch
+            
+            // FIX: Dùng đúng tên biến enemyHealthBarBg của bạn ở đây
+            const y = this.enemyHealthBarBg.y + 16; 
+
+            this.enemyHeatBarBg = this.add.rectangle(x, y, barWidth, barHeight, 0x000000)
+                .setStrokeStyle(1, 0xffffff).setOrigin(0.5).setDepth(5);
+            this.enemyHeatBarFill = this.add.rectangle(x - barWidth/2, y, barWidth, barHeight, 0xff5500)
+                .setOrigin(0, 0.5).setDepth(6);
+            
+            this.updateHeatBarUI();
+        }
     }
 
     updateFightButtonState() {
@@ -341,6 +572,7 @@ export default class BattleScene extends Phaser.Scene {
             this.tweens.add({ targets: card, x, y, duration: 320, ease: 'Sine.easeOut' });
         }
         this.refreshCombatPreview();
+        this.startRumbleTimer();
     }
 
     // ==========================================
@@ -402,6 +634,10 @@ export default class BattleScene extends Phaser.Scene {
 
         this.layoutPlayerReserveSlots(0);
 
+        this.updateHealthUI();
+
+        this.refreshHeatBar(); 
+
          this.time.delayedCall(100, () => {
             ConditionSystem.executeStageSetup(this, this.currentStageData);
         }); 
@@ -415,6 +651,8 @@ export default class BattleScene extends Phaser.Scene {
             BossSkillEngine.executeTrigger(this, this.currentEnemyData, 'onRoundStart', this.matchRound);
         });
         this.time.delayedCall(1500, () => this.playAITurn());   
+
+        this.startRumbleTimer();
 
     }
 
@@ -659,7 +897,9 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         if (!done) { draggedCard.snapBack(); }
-        this.time.delayedCall(280, () => { this.updateFightButtonState(); this.refreshCombatPreview(); });
+        this.time.delayedCall(280, () => { this.updateFightButtonState(); this.refreshCombatPreview(); 
+        this.startRumbleTimer();
+        });
     }
 
     async animateFightOrbit(playerCard, enemyCard) {
@@ -767,12 +1007,17 @@ export default class BattleScene extends Phaser.Scene {
         this.fightBtn.disableInteractive(); this.swapBtn?.disableInteractive(); this.fightIcon.setAlpha(0.5); this.input.enabled = false;
         playSfx(this, 'sfx_fight', { volume: 0.55 });
 
+        if (this.rumbleTimer) {
+            this.rumbleTimer.remove();
+            this.rumbleTimer = null;
+        }
+
         //if (!this.playerCoreCard) this.ensurePlayerCoreFilled(0);
 
         if (this.playerCoreCard) this.playerCoreCard.setFlipped(false);
         if (this.enemyCoreCard) this.enemyCoreCard.setFlipped(false);
 
-        const waitScreen = this.add.rectangle(this.scale.width / 2, this.fightCenter.y, this.scale.width, 160, 0x000000, 0.75).setDepth(210);
+        //const waitScreen = this.add.rectangle(this.scale.width / 2, this.fightCenter.y, this.scale.width, 160, 0x000000, 0.75).setDepth(210);
         const clashText = this.add.text(this.scale.width / 2, this.fightCenter.y, 'CHIẾN ĐẤU...', { fontSize: '28px', color: '#ffcc00', align: 'center', fontStyle: 'bold' }).setOrigin(0.5).setDepth(211);
         this.tweens.add({ targets: clashText, alpha: 0.2, yoyo: true, repeat: -1, duration: 500 });
 
@@ -780,6 +1025,11 @@ export default class BattleScene extends Phaser.Scene {
         if (!playerCard?.active || !enemyCard?.active) { waitScreen.destroy(); clashText.destroy(); this.input.enabled = true; this.swapBtn?.setInteractive({ useHandCursor: true }); return; }
 
         const finalResult = compareCards(playerCard.cardData, enemyCard.cardData);
+
+       BossSkillEngine.executeTrigger(this, this.currentEnemyData, 'onCardPlayed', { 
+          playerCard: this.playerCoreCard?.cardData 
+         });
+
         if (playerCard.cardData.type === 'Dual' && enemyCard.cardData.type === 'Dual') this.notifyDualDiscovery(playerCard.cardData.name, enemyCard.cardData.name);
 
         this.tweens.add({ targets: this.playerSprite, y: this.playerSprite.y - 30, scale: 1.1, duration: 150, yoyo: true, ease: 'Power2' });
@@ -965,38 +1215,64 @@ export default class BattleScene extends Phaser.Scene {
     //     this.updateHealthUI(); this.startStage();
     // }
 
-    resetMatch(advanceStage = false) {
+   resetMatch(advanceStage = false) {
         if (advanceStage) {
             const nextStageData = DataManager.getStageData(this.currentStage + 1);
             if (nextStageData) this.currentStage += 1;
         }
 
-        this.matchOver = false;
-        this.matchRound = 1;
+        // Chỉ cần gọi restart và truyền trạng thái đã unlock audio
+        this.scene.restart({ audioUnlocked: true });
+    }
 
-        const newData = DataManager.getStageData(this.currentStage);
-        if (newData) {
-            this.currentStageData = newData;
-            this.currentEnemyData = newData.enemy;
-            this.enemyMaxHealth = newData.enemy.hp;
-            this.enemyHealth = newData.enemy.hp;
-            this.enemySprite.setFillStyle(newData.enemy.color);
-            this.enemyNameText.setText(newData.enemy.name);
-            this.roundText.setText(`CHAPTER ${newData.chapter} - VÒNG 1/${this.maxRounds}`);
-        } else {
-            this.enemyHealth = 100;
-            this.enemyMaxHealth = 100;
-            this.roundText.setText(`VÒNG 1/${this.maxRounds}`);
+    // --- KHỞI CHẠY BỘ ĐẾM GIỜ RUNG CHẤN ---
+    startRumbleTimer() {
+        // 1. Xóa bộ đếm cũ nếu đang chạy
+        if (this.rumbleTimer) {
+            this.rumbleTimer.remove();
+            this.rumbleTimer = null;
         }
 
-        this.playerHealth = 100; // Hồi đầy máu Player
+        // 2. Kiểm tra xem màn này có Rung Chấn không
+        const condId = this.currentStageData?.condition_id;
+        const hasRumble = (condId === 'rumble' || condId === 'rumble_and_heat');
+        
+        if (!hasRumble || this.matchOver) return;
 
-         this.bossHasWoodShield = false;
-        if (this.woodShieldGraphic) {
-            this.woodShieldGraphic.setVisible(false);
+        // 3. Kích hoạt bộ đếm 30 giây (30000ms)
+        // MẸO: Bạn hãy chỉnh số 30000 thành 5000 (5 giây) để test cho nhanh, xong thì sửa lại sau!
+        this.rumbleTimer = this.time.delayedCall(10000, () => {
+            this.executeRumbleEffect();
+        });
+    }
+
+    // --- THỰC THI HIỆU ỨNG RUNG CHẤN ---
+    async executeRumbleEffect() {
+        if (this.matchOver) return;
+
+        // 1. Rung lắc màn hình & Phát âm thanh nứt vỡ
+        this.cameras.main.shake(800, 0.015);
+        playSfx(this, 'sfx_crack', { volume: 0.6 });
+
+        // 2. Hiện chữ thông báo
+        const txt = this.add.text(this.scale.width / 2, this.arenaTopY + 150, '⚠️ RUNG CHẤN!\nĐất đá sụt lở, bài tự dung hợp!', {
+            fontSize: '22px', color: '#e67e22', fontStyle: 'bold', align: 'center', stroke: '#000', strokeThickness: 5
+        }).setOrigin(0.5).setDepth(200);
+        this.tweens.add({ targets: txt, y: txt.y - 40, alpha: 0, duration: 2500, onComplete: () => txt.destroy() });
+
+        // 3. Tự động ghép cặp bài đơn trái cùng
+        let pRow = [...this.getPlayerReserveList()];
+        
+        // Tái sử dụng hàm merge của Tàn Cuộc
+        const merged = await this.mergeOneLeftPair(pRow, this.playerReserveY, true);
+        
+        if (merged) {
+            this.syncPlayerSlotsAfterWar(pRow); // Đồng bộ lại vị trí hàng bài
+            this.refreshCombatPreview();       // Cập nhật lại vết nứt dự báo
         }
-        this.updateHealthUI();
-        this.startStage();
+
+        // 4. Reset lại bộ đếm cho lần Rung Chấn tiếp theo
+        this.startRumbleTimer();
     }
 
     finishMatch() {
