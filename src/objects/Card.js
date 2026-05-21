@@ -57,7 +57,10 @@ export default class Card extends Phaser.GameObjects.Container {
         this.crackImage = scene.add.image(0, 0, 'crack_overlay').setVisible(false).setDepth(5);
         this.crackImage.setDisplaySize(100, 140); 
 
-        this.add([this.bg, this.elementIcon, this.titleText, this.text, this.iconPlus, this.iconCross, this.lockIcon, this.tipBg, this.elementIcon1, this.elementIcon2, this.plusText, this.crackImage]);
+        this.fogOverlay = scene.add.rectangle(0, 0, 100, 140, 0x111111).setVisible(false).setDepth(45);
+        this.isFlipped = false; // Trạng thái lật úp
+
+        this.add([this.bg, this.elementIcon, this.titleText, this.text, this.iconPlus, this.iconCross, this.lockIcon, this.tipBg, this.elementIcon1, this.elementIcon2, this.plusText, this.crackImage, this.fogOverlay]);
         scene.add.existing(this);
 
         this.crackActive = false;
@@ -154,13 +157,23 @@ export default class Card extends Phaser.GameObjects.Container {
     }
 
     refreshVisuals() {
-        this.drawBackground();
+         this.drawBackground();
+        const flipped = this.isFlipped;
+        
         if (this.cardData.type === 'Dual') {
-            this.titleText.setText(this.cardData.name); this.titleText.setVisible(true); this.elementIcon.setVisible(false);
+            this.titleText.setText(this.cardData.name);
+            this.titleText.setVisible(!flipped);
+            this.elementIcon.setVisible(false);
         } else {
-            this.titleText.setVisible(false); this.elementIcon.setTexture(`icon_${this.cardData.name.toLowerCase()}`); this.elementIcon.setVisible(true); this.elementIcon.setDisplaySize(60, 40);
+            this.titleText.setVisible(false);
+            this.elementIcon.setTexture(`icon_${this.cardData.name.toLowerCase()}`);
+            this.elementIcon.setVisible(!flipped);
+            this.elementIcon.setDisplaySize(60, 40); 
         }
-        this.text.setText(`Lv${this.cardData.level}`); this.text.setColor('#ffffff'); this.text.setStroke('#000000', 4);
+        this.text.setText(`Lv${this.cardData.level}`);
+        this.text.setVisible(!flipped);
+        this.text.setColor('#ffffff');
+        this.text.setStroke('#000000', 4);
     }
 
    setLock(locked) {
@@ -269,5 +282,14 @@ export default class Card extends Phaser.GameObjects.Container {
                 break;
             }
         }
+    }
+    setFlipped(flipped) {
+        this.isFlipped = flipped;
+        this.fogOverlay.setVisible(flipped);
+        
+        // Ẩn/Hiện nội dung lá bài để không bị lộ qua lớp phủ
+        if (this.elementIcon) this.elementIcon.setVisible(!flipped && this.cardData.type === 'Single');
+        if (this.titleText) this.titleText.setVisible(!flipped && this.cardData.type === 'Dual');
+        if (this.text) this.text.setVisible(!flipped);
     }
 }

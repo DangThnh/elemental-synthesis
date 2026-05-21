@@ -47,6 +47,33 @@
           "action": "reduce_damage_50"
         }
       ]
+    },
+    {
+      "id": "ch2_2_duc_long",
+      "name": "Dực Long Lửa",
+      "hp": 110,
+      "color": "0xe67e22",
+      "skills": [
+        {
+          "name": "Hỏa Thần Sực Tỉnh",
+          "trigger": "onRoundStart",
+          "condition": { "rounds": [1,2,3,4,5] },
+          "action": "destroy_water_cards"
+        }
+      ]
+    },
+    {
+      "id": "ch2_boss_efreet",
+      "name": "Hỏa Thần Ngủ Quên",
+      "hp": 150,
+      "color": "0xc0392b",
+      "skills": [
+        {
+          "name": "Nhiệt Tích Lũy",
+          "trigger": "onCardPlayed",
+          "action": "charge_heat_gauge"
+        }
+      ]
     }
   ]
 }

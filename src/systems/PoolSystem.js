@@ -37,36 +37,46 @@ export default class PoolSystem {
         }
     }
 
-    /**
-     * Rút số lượng lá bài yêu cầu từ bể
-     * Áp dụng "The Climax Curve": Vòng càng cao, tỉ lệ bài Lvl 2 càng lớn
-     * @param {number} amount - Số lượng lá bài cần rút
-     * @param {number} currentRound - Vòng đấu hiện tại
-     * @returns {Array} Mảng các lá bài đã rút
+   /**
+     * Rút bài thông minh từ bể bài chung
+     * @param {number} amount - Số lá cần rút
+     * @param {number} currentRound - Vòng hiện tại để tính tỉ lệ Lvl 2
+     * @param {string} conditionId - ID điều kiện môi trường (Dùng chữ "d" viết thường)
      */
-    drawCards(amount, currentRound = 1) {
+    drawCards(amount, currentRound = 1, conditionId = null) {
         let hand = [];
         
-        // Cấu hình tỉ lệ bài Lvl 2 theo The Climax Curve (như GDD)
         let level2Chance = 0;
-        if (currentRound === 2) level2Chance = 0.10; // 10%
-        else if (currentRound === 3) level2Chance = 0.30; // 30%
-        else if (currentRound === 4) level2Chance = 0.50; // 50%
-        else if (currentRound >= 5) level2Chance = 0.80; // 80%
+        if (currentRound === 2) level2Chance = 0.10;
+        else if (currentRound === 3) level2Chance = 0.30;
+        else if (currentRound === 4) level2Chance = 0.50;
+        else if (currentRound >= 5) level2Chance = 0.80;
+
+        // KIỂM TRA ĐIỀU KIỆN SỨC NÓNG
+        const isExtremeHeat = (conditionId === 'extreme_heat' || conditionId === 'rumble_and_heat');
 
         for (let i = 0; i < amount; i++) {
-            // Nếu bể bài hết, tự động nạp lại (trong thực tế có thể xử lý khác)
             if (this.deck.length === 0) {
-                console.warn("Bể bài đã cạn! Tự động khởi tạo lại.");
                 this.initializePool(); 
             }
 
-            // Rút 1 lá từ đỉnh bộ bài
-            let card = this.deck.pop();
+            let card;
 
-            // Nếu may mắn trúng tỉ lệ, nâng cấp thành lá Lvl 2
+            // Nếu là môi trường Sức Nóng -> 35% tỷ lệ ép ra thẻ Hỏa (Fire)
+            if (isExtremeHeat && Math.random() < 0.35) {
+                card = {
+                    name: 'Fire',
+                    type: 'Single',
+                    level: 1,
+                    elements: ['Fire'],
+                    color: Elements.FIRE.color
+                };
+            } else {
+                card = this.deck.pop();
+            }
+
             if (Math.random() < level2Chance) {
-                card = { ...card, level: 2 }; // Tạo bản sao để tránh lỗi tham chiếu
+                card = { ...card, level: 2 };
             }
 
             hand.push(card);

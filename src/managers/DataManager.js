@@ -43,6 +43,7 @@ class DataManager {
         return {
             stageId: stage.stage_id,
             chapter: stage.chapter,
+            condition_id: stage.condition_id,
             enemy: enemy
         };
     }

@@ -4,6 +4,7 @@ import PoolSystem from '../systems/PoolSystem';
 import AISystem from '../systems/AISystem';
 import BossSkillEngine from '../systems/BossSkillEngine';
 import DataManager from '../managers/DataManager';
+import ConditionSystem from '../systems/ConditionSystem';
 
 import { checkMerge, compareCards, getWeakSideForPreview } from '../utils/GameLogic'; // Bỏ drawFiveCards
 import { createHelpReferencePanel, discoverDualPairFromFight } from '../ui/HelpReferencePanel';
@@ -124,8 +125,8 @@ export default class BattleScene extends Phaser.Scene {
 
         enemyData = enemyData || { name: 'UNKNOWN', hp: 100, color: 0xe74c3c };
         this.enemySprite = this.add.rectangle(width - 120, this.arenaTopY + 150, 100, 130, enemyData.color).setStrokeStyle(4, 0x000);
-        this.enemyNameText = this.add.text(width - 120, this.arenaTopY + 150, enemyData.name, { fontSize: '18px', color: '#fff', fontStyle: 'bold', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
-       
+        this.enemyNameText = this.add.text(width - 120, this.arenaTopY + 150, enemyData.name, { fontSize: '22px', color: '#fff',  fontStyle: 'bold', align: 'center', wordWrap: { width: 140 } }).setOrigin(0.5);
+        this.enemyNameText.setStroke('#000000', 5);
        // this.add.text(width - 120, this.arenaTopY + 70, 'BOSS', { fontSize: '18px', color: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
 
         this.playerSprite = this.add.rectangle(140, this.arenaBottomY - 140, 140, 180, 0x3498db).setStrokeStyle(4, 0x000);
@@ -326,7 +327,10 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         // TÁCH LOGIC: Dùng PoolSystem để rút bài
-         const newReserve = this.poolSystem.drawCards(RESERVE_SLOT_COUNT, this.matchRound);
+        //const newReserve = this.poolSystem.drawCards(RESERVE_SLOT_COUNT, this.matchRound);
+
+        const condId = this.currentStageData?.condition_id || null;
+        const newReserve = this.poolSystem.drawCards(RESERVE_SLOT_COUNT, this.matchRound, condId);
         
         const sourceY = this.playerReserveY - 220;
         for (let i = 0; i < RESERVE_SLOT_COUNT; i++) {
@@ -372,8 +376,13 @@ export default class BattleScene extends Phaser.Scene {
        // const playerDeck = this.poolSystem.drawCards(this.matchRound); 
         //const enemyDeck = this.poolSystem.drawCards(this.matchRound);
 
-        const playerDeck = this.poolSystem.drawCards(RESERVE_SLOT_COUNT, this.matchRound);
-        const enemyDeck = this.poolSystem.drawCards(RESERVE_SLOT_COUNT, this.matchRound);
+
+        const condId = this.currentStageData?.condition_id || null;
+        const playerDeck = this.poolSystem.drawCards(RESERVE_SLOT_COUNT, this.matchRound, condId);
+        const enemyDeck = this.poolSystem.drawCards(RESERVE_SLOT_COUNT, this.matchRound, condId);
+
+        // const playerDeck = this.poolSystem.drawCards(RESERVE_SLOT_COUNT, this.matchRound);
+        // const enemyDeck = this.poolSystem.drawCards(RESERVE_SLOT_COUNT, this.matchRound);
         
         const { width } = this.scale;
         
@@ -392,6 +401,10 @@ export default class BattleScene extends Phaser.Scene {
         }
 
         this.layoutPlayerReserveSlots(0);
+
+         this.time.delayedCall(100, () => {
+            ConditionSystem.executeStageSetup(this, this.currentStageData);
+        }); 
 
         this.time.delayedCall(100, () => {
             BossSkillEngine.executeTrigger(this, this.currentEnemyData, 'onBattleStart', { matchRound: this.matchRound });
@@ -755,6 +768,9 @@ export default class BattleScene extends Phaser.Scene {
         playSfx(this, 'sfx_fight', { volume: 0.55 });
 
         //if (!this.playerCoreCard) this.ensurePlayerCoreFilled(0);
+
+        if (this.playerCoreCard) this.playerCoreCard.setFlipped(false);
+        if (this.enemyCoreCard) this.enemyCoreCard.setFlipped(false);
 
         const waitScreen = this.add.rectangle(this.scale.width / 2, this.fightCenter.y, this.scale.width, 160, 0x000000, 0.75).setDepth(210);
         const clashText = this.add.text(this.scale.width / 2, this.fightCenter.y, 'CHIẾN ĐẤU...', { fontSize: '28px', color: '#ffcc00', align: 'center', fontStyle: 'bold' }).setOrigin(0.5).setDepth(211);
