@@ -7,5 +7,6 @@ export default defineConfig({
   build: {
     // Đảm bảo thư mục đầu ra khớp với lệnh deploy của bạn (thường là dist)
     outDir: 'dist',
+    assetsDir: 'assets',
   }
 })

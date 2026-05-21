@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import Phaser from 'phaser';
+//import Phaser from 'phaser';
 import BattleScene from './scenes/BattleScene';
 // import MapScene from './scenes/MapScene';
 // import PreloaderScene from './scenes/PreloaderScene';
