@@ -1,0 +1,10 @@
+{
+  "stages": [
+    { "stage_id": 1, "chapter": 1, "enemy_id": "ch1_1_nam_nhay", "condition_id": "dense_fog" },
+    { "stage_id": 2, "chapter": 1, "enemy_id": "ch1_2_ma_thao" },
+    { "stage_id": 3, "chapter": 1, "enemy_id": "ch1_boss_co_moc", "condition_id": "dense_fog" },
+    { "stage_id": 4, "chapter": 2, "enemy_id": "ch2_1_ma_thach", "condition_id": "rumble" },
+    { "stage_id": 5, "chapter": 2, "enemy_id": "ch2_2_duc_long", "condition_id": "extreme_heat" },
+    { "stage_id": 6, "chapter": 2, "enemy_id": "ch2_boss_efreet", "condition_id": "rumble_and_heat" }
+  ]
+}
