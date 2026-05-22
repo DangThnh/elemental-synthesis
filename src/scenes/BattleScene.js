@@ -1073,7 +1073,7 @@ this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - damage, 0, this.enemyMax
         this.tweens.add({ targets: clashText, alpha: 0.2, yoyo: true, repeat: -1, duration: 500 });
 
         const playerCard = this.playerCoreCard; const enemyCard = this.enemyCoreCard;
-        if (!playerCard?.active || !enemyCard?.active) { waitScreen.destroy(); clashText.destroy(); this.input.enabled = true; this.swapBtn?.setInteractive({ useHandCursor: true }); return; }
+        if (!playerCard?.active || !enemyCard?.active) {clashText.destroy(); this.input.enabled = true; this.swapBtn?.setInteractive({ useHandCursor: true }); return; }
 
         const finalResult = compareCards(playerCard.cardData, enemyCard.cardData);
 
