@@ -1110,7 +1110,7 @@ this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - damage, 0, this.enemyMax
         }
 
         if (finalResult === 'HÒA') {
-            waitScreen.destroy(); clashText.setDepth(211);
+           //waitScreen.destroy(); clashText.setDepth(211);
             this.time.delayedCall(400, () => {
                 clashText.setText('HÒA!\nTÀN CUỘC...'); this.reserveWarSpeedMult = 2.85;
                 this.resolveReserveWar().then((resultObj) => {
@@ -1336,6 +1336,7 @@ this.enemyHealth = Phaser.Math.Clamp(this.enemyHealth - damage, 0, this.enemyMax
             this.refreshCombatPreview();       // Cập nhật lại vết nứt dự báo
         }
 
+        
         // 4. Reset lại bộ đếm cho lần Rung Chấn tiếp theo
         this.startRumbleTimer();
     }
